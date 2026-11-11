@@ -2,6 +2,14 @@
 
 /** Sessions: the turn trace, usage & cost statistics and the search view. */
 const sessions: Catalog = {
+  "sessions.status.running": "running",
+  "sessions.status.completed": "completed",
+  "sessions.status.failed": "failed",
+  "sessions.status.awaitingApproval": "awaiting approval",
+  "sessions.status.stopped": "stopped",
+  "sessions.status.ok": "ok",
+  "sessions.status.error": "error",
+  "sessions.status.denied": "denied",
   // ── Danh sách phiên ────────────────────────────────────────────────────────
   "sessions.tab.sessions": "Sessions",
   "sessions.tab.search": "Search",

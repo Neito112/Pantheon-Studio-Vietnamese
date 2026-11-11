@@ -8,6 +8,7 @@ import { StatsView } from "@/components/sessions/StatsView";
 import { TurnView } from "@/components/sessions/TurnView";
 import { Badge, Button, cx, Empty, Select, Tabs } from "@/components/ui";
 import { formatCurrency, formatNumber, formatRelative, useLocale, useT } from "@/i18n";
+import { sessionStatusLabel } from "@/i18n/labels";
 import { api } from "@/lib/api";
 import { truncate } from "@/lib/format";
 import type { Turn } from "@/lib/types";
@@ -107,7 +108,7 @@ function Sessions() {
                 <option value="">{t("sessions.filter.anyStatus")}</option>
                 {Object.keys(TURN_TONE).map((s) => (
                   <option key={s} value={s}>
-                    {s.replace("_", " ")}
+                    {sessionStatusLabel(t, s)}
                   </option>
                 ))}
               </Select>
@@ -152,7 +153,7 @@ function TurnRow({ turn, active, onClick }: { turn: Turn; active: boolean; onCli
       <div className="flex items-center gap-2">
         <AgentAvatar agent={agent} size={22} />
         <span className="text-sm font-medium">{agent?.name ?? turn.agentId}</span>
-        <Badge tone={TURN_TONE[turn.status]}>{turn.status.replace("_", " ")}</Badge>
+        <Badge tone={TURN_TONE[turn.status]}>{sessionStatusLabel(t, turn.status)}</Badge>
         <span className="ml-auto text-[11px] text-ink-3">{formatRelative(locale, turn.startedAt)}</span>
       </div>
       <div className="mt-1 line-clamp-2 text-xs text-ink-2">{turn.error ? `⚠ ${turn.error}` : turn.summary ? truncate(turn.summary, 160) : "…"}</div>

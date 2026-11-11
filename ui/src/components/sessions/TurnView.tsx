@@ -5,6 +5,7 @@ import { AgentAvatar, UserAvatar } from "@/components/agent";
 import { Markdown } from "@/components/Markdown";
 import { Badge, Button, cx, Modal, Spinner } from "@/components/ui";
 import { formatCurrency, formatDateTime, formatDuration, formatNumber, useLocale, useT } from "@/i18n";
+import { sessionStatusLabel } from "@/i18n/labels";
 import { api } from "@/lib/api";
 import type { LlmCall, Message, ToolCall, TurnDetail } from "@/lib/types";
 import { agentName, useOrg } from "@/store/org";
@@ -48,7 +49,7 @@ export function TurnView({ turnId }: { turnId: string }) {
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="font-semibold">{agent?.name ?? turn.agentId}</span>
-            <Badge tone={TONE[turn.status]}>{turn.status.replace("_", " ")}</Badge>
+            <Badge tone={TONE[turn.status]}>{sessionStatusLabel(t, turn.status)}</Badge>
             <span className="font-mono text-xs text-ink-3">{turn.id}</span>
           </div>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-3">
@@ -208,7 +209,7 @@ function ToolBlock({ name, args, result }: { name: string; args: Record<string, 
         <span className="text-ink-3">{open ? "▾" : "▸"}</span>
         <code className="font-mono text-xs font-semibold text-info">{name}</code>
         <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink-3">{argSummary}</span>
-        <Badge tone={tone}>{result ? result.status : t("sessions.turn.noResult")}</Badge>
+        <Badge tone={tone}>{result ? sessionStatusLabel(t, result.status) : t("sessions.turn.noResult")}</Badge>
         {result && <span className="text-[11px] text-ink-3">{formatDuration(locale, result.durationMs / 1000)}</span>}
       </button>
       {open && (

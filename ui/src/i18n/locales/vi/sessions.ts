@@ -2,6 +2,14 @@
 
 /** Phiên: lượt xử lý, thống kê dùng & chi phí, và tìm kiếm. */
 const sessions: Catalog = {
+  "sessions.status.running": "đang chạy",
+  "sessions.status.completed": "hoàn tất",
+  "sessions.status.failed": "thất bại",
+  "sessions.status.awaitingApproval": "chờ phê duyệt",
+  "sessions.status.stopped": "đã dừng",
+  "sessions.status.ok": "thành công",
+  "sessions.status.error": "lỗi",
+  "sessions.status.denied": "đã từ chối",
   // ── Danh sách phiên ────────────────────────────────────────────────────────
   "sessions.tab.sessions": "Phiên",
   "sessions.tab.search": "Tìm kiếm",

@@ -10,6 +10,7 @@ import { Badge, Button, cx, ErrorNote, Field, Input, Modal, Select, Textarea } f
 import { api } from "@/lib/api";
 import type { Task, TaskStatus } from "@/lib/types";
 import { formatRelative, useLocale, useT } from "@/i18n";
+import { boardColumnLabel } from "@/i18n/labels";
 import { useOrg } from "@/store/org";
 
 const PRIORITY_TONE = { low: "neutral", normal: "info", high: "warn", urgent: "bad" } as const;
@@ -128,7 +129,7 @@ function Board() {
               <div className="flex items-center justify-between px-3 py-2.5">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <span className={cx("size-2 rounded-full", COLUMN_DOT[col.key])} />
-                  {col.name}
+                  {boardColumnLabel(t, col)}
                   <span className="text-xs text-ink-3">{items.length}</span>
                 </div>
                 <button className="text-ink-3 hover:text-ink cursor-pointer" onClick={() => setCreating(col.key)} title={t("work.addTask")}>

@@ -1,5 +1,12 @@
 # Kiểm tra phần Việt hóa — 11/11/2026
 
+## Bổ sung cho bản vi-2.0.2-r2
+
+- Thay toàn bộ 6 ảnh tiếng Anh trong hướng dẫn HTML bằng ảnh chụp giao diện tiếng Việt, dùng engine và dữ liệu thực hành riêng. Ảnh nguồn và thông tin chụp nằm ở `docs/images/guide-vi/`; script tái tạo ở `ui/scripts/capture-guide-screenshots.py`.
+- Dịch tên cột mặc định của Bảng mà không đổi tên cột do người dùng tự đặt; dịch nhãn trạng thái trong Phiên và kết quả tool. Giữ nguyên giá trị trạng thái gửi tới API.
+- Tổng cộng 42 test giao diện đạt, gồm 13 test i18n; kiểm tra thêm việc giữ tên cột tùy chỉnh, giá trị trạng thái và hiển thị ở cả Việt/Anh.
+- Đóng gói lại bộ cài và ZIP portable để ứng dụng cùng khớp với các ảnh mới; hướng dẫn HTML được nhúng sẵn ảnh để dùng ngoại tuyến.
+
 Phạm vi: kiểm tra những thay đổi Việt hóa so với repo gốc, các catalogue, runtime i18n và cách giao diện sử dụng chúng. Các kiểm thử chức năng engine không được dùng để quy lỗi cho bản dịch. Không sửa engine, API client, store hay dependency của ứng dụng.
 
 ## Những vấn đề đã sửa

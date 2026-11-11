@@ -1,6 +1,12 @@
 ﻿import type { Catalog } from "../../types";
 
 const work: Catalog = {
+  "work.column.backlog": "Backlog",
+  "work.column.todo": "To do",
+  "work.column.inProgress": "In progress",
+  "work.column.blocked": "Blocked",
+  "work.column.review": "Review",
+  "work.column.done": "Done",
   "work.filterTasks": "Filter tasks…",
   "work.everyone": "Everyone",
   "work.taskCount_one": "{count} task",

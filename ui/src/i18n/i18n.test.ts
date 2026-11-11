@@ -7,6 +7,7 @@ import ts from "typescript";
 import { afterEach, describe, expect, it, vi as mock } from "vitest";
 import { LanguageSwitcher } from "../components/LanguageSwitcher";
 import { stateLook } from "../studio/look";
+import { boardColumnLabel, sessionStatusLabel } from "./labels";
 import { detectLocale, I18nProvider, useT } from "./core";
 import { formatCurrency, formatDate, formatDuration, formatNumber, formatRelative } from "./format";
 import { en } from "./locales/en";
@@ -86,6 +87,23 @@ describe("translation catalogue contracts", () => {
 });
 
 describe("language selection and translation rendering", () => {
+  it("translates engine default board headings without changing user labels or status keys", () => {
+    const t = (key: string) => vi[key];
+    const column = { key: "in_progress", name: "In progress" };
+    expect(boardColumnLabel(t, column)).toBe("Đang làm");
+    expect(column).toEqual({ key: "in_progress", name: "In progress" });
+    expect(boardColumnLabel(t, { ...column, name: "Đội thiết kế" })).toBe("Đội thiết kế");
+    expect(boardColumnLabel((key) => en[key], column)).toBe("In progress");
+  });
+
+  it("translates session and tool statuses while preserving unknown status text", () => {
+    const t = (key: string) => vi[key];
+    expect(sessionStatusLabel(t, "completed")).toBe("hoàn tất");
+    expect(sessionStatusLabel(t, "awaiting_approval")).toBe("chờ phê duyệt");
+    expect(sessionStatusLabel(t, "ok")).toBe("thành công");
+    expect(sessionStatusLabel(t, "custom_state")).toBe("custom state");
+  });
+
   it("changes state labels without changing their colours, animations or attention flags", () => {
     for (const status of ["working", "awaiting_approval", "error", "retrying", "cooling_down", "queued", "idle"] as const) {
       const english = stateLook(status, undefined, (key) => en[key]);

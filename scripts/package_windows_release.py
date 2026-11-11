@@ -48,7 +48,7 @@ def main() -> None:
         "sourceCommit": commit,
         "requires": "Windows 10/11 x64 and Microsoft Edge WebView2 Runtime",
         "updates": "Manual download from this repository's Releases; no signed updater feed is published.",
-        "validation": ["40 UI tests passed (including 11 i18n checks)", "TypeScript and ESLint passed", "Offline HTML guide browser checks passed"],
+        "validation": ["42 UI tests passed (including 13 i18n checks)", "TypeScript and ESLint passed", "Offline HTML guide browser checks passed"],
     }
     (out / "BUILD-INFO.json").write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     readme = (

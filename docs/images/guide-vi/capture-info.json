@@ -1,0 +1,13 @@
+{
+  "locale": "vi",
+  "source": "Real production UI and local engine with isolated practice data",
+  "trace": "Seeded practice example, not a real AI execution",
+  "views": [
+    "office",
+    "board",
+    "stage",
+    "sessions",
+    "flow",
+    "zeus"
+  ]
+}

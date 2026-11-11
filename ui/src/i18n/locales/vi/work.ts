@@ -1,6 +1,12 @@
 ﻿import type { Catalog } from "../../types";
 
 const work: Catalog = {
+  "work.column.backlog": "Chờ lên kế hoạch",
+  "work.column.todo": "Cần làm",
+  "work.column.inProgress": "Đang làm",
+  "work.column.blocked": "Bị chặn",
+  "work.column.review": "Chờ duyệt",
+  "work.column.done": "Hoàn tất",
   "work.filterTasks": "Lọc task…",
   "work.everyone": "Mọi người",
   "work.taskCount_other": "{count} task",
