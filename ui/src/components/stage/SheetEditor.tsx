@@ -3,6 +3,7 @@
 import { Workbook, type WorkbookInstance } from "@fortune-sheet/react";
 import "@fortune-sheet/react/dist/index.css";
 import { Component, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import type { SheetCell, SheetData } from "@/lib/types";
 import { useOrg } from "@/store/org";
@@ -81,8 +82,9 @@ class Reload extends Component<{ onError: () => void; children: ReactNode }, { f
 
 /** The live spreadsheet: saves the user's edits as cell changes and applies agents' changes. */
 export default function SheetEditor(props: { docId: string; onSelection?: (text: string) => void }) {
+  const t = useT();
   const [attempt, setAttempt] = useState(0);
-  if (attempt > 3) return <div className="p-6 text-sm text-bad">This spreadsheet couldn't be shown. Reopen it to try again.</div>;
+  if (attempt > 3) return <div className="p-6 text-sm text-bad">{t("stage.sheet.cantShow")}</div>;
   return (
     <Reload key={attempt} onError={() => setAttempt((a) => a + 1)}>
       <LiveSheet {...props} />
@@ -91,6 +93,7 @@ export default function SheetEditor(props: { docId: string; onSelection?: (text:
 }
 
 function LiveSheet({ docId, onSelection }: { docId: string; onSelection?: (text: string) => void }) {
+  const t = useT();
   const [initial, setInitial] = useState<FSheet[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const ref = useRef<WorkbookInstance>(null);
@@ -190,14 +193,14 @@ function LiveSheet({ docId, onSelection }: { docId: string; onSelection?: (text:
         const [c1, c2] = sel.column;
         const a = `${colLetters(c1)}${r1 + 1}`;
         const b = `${colLetters(c2)}${r2 + 1}`;
-        onSelection?.(a === b ? `cell ${a} selected` : `cells ${a}:${b} selected`);
+        onSelection?.(a === b ? t("stage.sheet.cellSelected", { cell: a }) : t("stage.sheet.cellsSelected", { from: a, to: b }));
       },
     }),
-    [onSelection],
+    [onSelection, t],
   );
 
   if (error) return <div className="p-6 text-sm text-bad">{error}</div>;
-  if (!initial) return <div className="p-6 text-sm text-ink-3">Loading spreadsheet…</div>;
+  if (!initial) return <div className="p-6 text-sm text-ink-3">{t("stage.sheet.loading")}</div>;
   return (
     <div className="h-full w-full">
       <Workbook

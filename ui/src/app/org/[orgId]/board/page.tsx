@@ -8,11 +8,17 @@ import { AgentAvatar, UserAvatar } from "@/components/agent";
 import { TaskDrawer } from "@/components/TaskDrawer";
 import { Badge, Button, cx, ErrorNote, Field, Input, Modal, Select, Textarea } from "@/components/ui";
 import { api } from "@/lib/api";
-import { timeAgo } from "@/lib/format";
 import type { Task, TaskStatus } from "@/lib/types";
+import { formatRelative, useLocale, useT } from "@/i18n";
 import { useOrg } from "@/store/org";
 
 const PRIORITY_TONE = { low: "neutral", normal: "info", high: "warn", urgent: "bad" } as const;
+const PRIORITY_KEYS: Record<Task["priority"], string> = {
+  low: "work.priorityLow",
+  normal: "work.priorityNormal",
+  high: "work.priorityHigh",
+  urgent: "work.priorityUrgent",
+};
 
 export default function BoardPage() {
   return (
@@ -23,6 +29,7 @@ export default function BoardPage() {
 }
 
 function Board() {
+  const t = useT();
   const params = useSearchParams();
   const router = useRouter();
   const orgId = useOrg((s) => s.orgId)!;
@@ -81,9 +88,9 @@ function Board() {
             ))}
           </Select>
         )}
-        <Input className="min-w-0 flex-1 md:w-64 md:flex-none" placeholder="Filter tasks…" value={filter} onChange={(e) => setFilter(e.target.value)} />
+        <Input className="min-w-0 flex-1 md:w-64 md:flex-none" placeholder={t("work.filterTasks")} value={filter} onChange={(e) => setFilter(e.target.value)} />
         <Select className="w-32 md:w-48" value={assignee} onChange={(e) => setAssignee(e.target.value)}>
-          <option value="">Everyone</option>
+          <option value="">{t("work.everyone")}</option>
           {Object.values(agents)
             .filter((a) => !a.isSupervisor)
             .map((a) => (
@@ -93,9 +100,9 @@ function Board() {
             ))}
         </Select>
         <div className="ml-auto flex items-center gap-2">
-          <span className="whitespace-nowrap text-xs text-ink-3">{tasks.length} tasks</span>
+          <span className="whitespace-nowrap text-xs text-ink-3">{t("work.taskCount", { count: tasks.length })}</span>
           <Button variant="primary" onClick={() => setCreating("todo")}>
-            New task
+            {t("work.newTask")}
           </Button>
         </div>
       </div>
@@ -124,7 +131,7 @@ function Board() {
                   {col.name}
                   <span className="text-xs text-ink-3">{items.length}</span>
                 </div>
-                <button className="text-ink-3 hover:text-ink cursor-pointer" onClick={() => setCreating(col.key)} title="Add task">
+                <button className="text-ink-3 hover:text-ink cursor-pointer" onClick={() => setCreating(col.key)} title={t("work.addTask")}>
                   +
                 </button>
               </div>
@@ -154,6 +161,8 @@ const COLUMN_DOT: Record<TaskStatus, string> = {
 };
 
 function TaskCard({ task, onOpen, onDrag }: { task: Task; onOpen: () => void; onDrag: (id: string | null) => void }) {
+  const t = useT();
+  const locale = useLocale();
   const assignee = useOrg((s) => (task.assigneeId ? s.agents[task.assigneeId] : undefined));
   const tasks = useOrg((s) => s.tasks);
   const openDeps = task.dependsOn.filter((d) => tasks[d] && !["done", "cancelled"].includes(tasks[d].status));
@@ -171,9 +180,9 @@ function TaskCard({ task, onOpen, onDrag }: { task: Task; onOpen: () => void; on
     >
       <div className="flex items-center gap-2 text-[11px] text-ink-3">
         <span className="font-mono">{task.ref}</span>
-        {task.priority !== "normal" && <Badge tone={PRIORITY_TONE[task.priority]}>{task.priority}</Badge>}
-        {openDeps.length > 0 && <Badge tone="warn">waits on {openDeps.map((d) => tasks[d].ref).join(", ")}</Badge>}
-        <span className="ml-auto">{timeAgo(task.updatedAt)}</span>
+        {task.priority !== "normal" && <Badge tone={PRIORITY_TONE[task.priority]}>{t(PRIORITY_KEYS[task.priority])}</Badge>}
+        {openDeps.length > 0 && <Badge tone="warn">{t("work.waitsOn", { refs: openDeps.map((d) => tasks[d].ref).join(", ") })}</Badge>}
+        <span className="ml-auto">{formatRelative(locale, task.updatedAt)}</span>
       </div>
       <div className="mt-1.5 text-sm leading-snug">{task.title}</div>
       {task.result && task.status !== "todo" && <div className="mt-1.5 line-clamp-2 text-xs text-ink-3">{task.result}</div>}
@@ -183,7 +192,7 @@ function TaskCard({ task, onOpen, onDrag }: { task: Task; onOpen: () => void; on
         ) : assignee ? (
           <AgentAvatar agent={assignee} size={20} status={working ? "working" : undefined} />
         ) : (
-          <span className="text-xs text-ink-3">Unassigned</span>
+          <span className="text-xs text-ink-3">{t("work.unassigned")}</span>
         )}
         {assignee && <span className="text-xs text-ink-2">{assignee.name}</span>}
         <div className="ml-auto flex gap-1">
@@ -197,6 +206,7 @@ function TaskCard({ task, onOpen, onDrag }: { task: Task; onOpen: () => void; on
 }
 
 function NewTask({ orgId, boardId, status, onClose }: { orgId: string; boardId: string; status: TaskStatus; onClose: () => void }) {
+  const t = useT();
   const agents = useOrg(useShallow((s) => Object.values(s.agents).filter((a) => !a.isSupervisor)));
   const [form, setForm] = useState({ title: "", description: "", acceptance: "", assigneeId: "", priority: "normal" as Task["priority"] });
   const [busy, setBusy] = useState(false);
@@ -221,32 +231,32 @@ function NewTask({ orgId, boardId, status, onClose }: { orgId: string; boardId: 
     <Modal
       open
       onClose={onClose}
-      title="New task"
+      title={t("work.newTask")}
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button variant="primary" onClick={submit} loading={busy} disabled={!form.title.trim()}>
-            Create
+            {t("common.create")}
           </Button>
         </>
       }
     >
       <div className="grid gap-4">
-        <Field label="Title">
+        <Field label={t("work.title")}>
           <Input autoFocus value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
         </Field>
-        <Field label="Description">
+        <Field label={t("work.description")}>
           <Textarea rows={5} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         </Field>
-        <Field label="Acceptance criteria" hint="How the reviewer knows it's done">
+        <Field label={t("work.acceptanceCriteria")} hint={t("work.acceptanceHint")}>
           <Textarea rows={3} value={form.acceptance} onChange={(e) => setForm({ ...form, acceptance: e.target.value })} />
         </Field>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Assignee" hint="They'll be notified">
+          <Field label={t("work.assignee")} hint={t("work.assigneeHint")}>
             <Select value={form.assigneeId} onChange={(e) => setForm({ ...form, assigneeId: e.target.value })}>
-              <option value="">Unassigned</option>
+              <option value="">{t("work.unassigned")}</option>
               {agents.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name} — {a.role}
@@ -254,10 +264,12 @@ function NewTask({ orgId, boardId, status, onClose }: { orgId: string; boardId: 
               ))}
             </Select>
           </Field>
-          <Field label="Priority">
+          <Field label={t("work.priority")}>
             <Select value={form.priority} onChange={(e) => setForm({ ...form, priority: e.target.value as Task["priority"] })}>
-              {["low", "normal", "high", "urgent"].map((p) => (
-                <option key={p}>{p}</option>
+              {(["low", "normal", "high", "urgent"] as const).map((p) => (
+                <option key={p} value={p}>
+                  {t(PRIORITY_KEYS[p])}
+                </option>
               ))}
             </Select>
           </Field>

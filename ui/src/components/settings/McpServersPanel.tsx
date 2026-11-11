@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { Badge, Button, ErrorNote, Field, Input, Modal, Select, Textarea, Toggle } from "@/components/ui";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import type { McpServer } from "@/lib/types";
 
@@ -13,6 +14,7 @@ const EXAMPLES = [
 ];
 
 export function McpServersPanel({ orgId }: { orgId?: string }) {
+  const t = useT();
   const [servers, setServers] = useState<McpServer[]>([]);
   const [editing, setEditing] = useState<McpServer | "new" | null>(null);
   const [testing, setTesting] = useState<string | null>(null);
@@ -26,7 +28,10 @@ export function McpServersPanel({ orgId }: { orgId?: string }) {
     setTesting(s.id);
     try {
       const r = await api.testMcpServer(s.id);
-      setResults((m) => ({ ...m, [s.id]: r.ok ? `✓ ${r.tools?.length} tools: ${r.tools?.map((t) => t.name).join(", ")}` : `✗ ${r.error}` }));
+      setResults((m) => ({
+        ...m,
+        [s.id]: r.ok ? t("settings.mcp.testOk", { count: r.tools?.length ?? 0, tools: r.tools?.map((x) => x.name).join(", ") ?? "" }) : t("settings.mcp.testFailed", { error: r.error ?? "" }),
+      }));
     } finally {
       setTesting(null);
       void load();
@@ -35,20 +40,20 @@ export function McpServersPanel({ orgId }: { orgId?: string }) {
 
   return (
     <div className="space-y-3">
-      {servers.length === 0 && <div className="text-sm text-ink-3">No MCP servers yet.</div>}
+      {servers.length === 0 && <div className="text-sm text-ink-3">{t("settings.mcp.empty")}</div>}
       {servers.map((s) => (
         <div key={s.id} className="rounded-lg border border-line p-3">
           <div className="flex items-center gap-2">
             <code className="font-mono text-sm font-semibold">{s.name}</code>
             <Badge>{s.transport}</Badge>
             <Badge tone={s.status === "ready" ? "ok" : s.status === "error" ? "bad" : "neutral"}>{s.status}</Badge>
-            {!s.enabled && <Badge tone="warn">disabled</Badge>}
+            {!s.enabled && <Badge tone="warn">{t("settings.mcp.disabled")}</Badge>}
             <div className="ml-auto flex gap-1.5">
               <Button size="sm" onClick={() => test(s)} loading={testing === s.id}>
-                Test
+                {t("settings.mcp.test")}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setEditing(s)}>
-                Edit
+                {t("settings.mcp.edit")}
               </Button>
             </div>
           </div>
@@ -56,7 +61,7 @@ export function McpServersPanel({ orgId }: { orgId?: string }) {
           {(results[s.id] || s.error) && <div className={`mt-1.5 text-xs ${results[s.id]?.startsWith("✓") ? "text-ok" : "text-bad"}`}>{results[s.id] ?? s.error}</div>}
         </div>
       ))}
-      <Button onClick={() => setEditing("new")}>+ Add MCP server</Button>
+      <Button onClick={() => setEditing("new")}>{t("settings.mcp.add")}</Button>
       {editing && (
         <McpEditor
           orgId={orgId}
@@ -72,6 +77,7 @@ export function McpServersPanel({ orgId }: { orgId?: string }) {
 }
 
 function McpEditor({ orgId, server, onClose }: { orgId?: string; server: McpServer | null; onClose: () => void }) {
+  const t = useT();
   const [form, setForm] = useState({
     name: server?.name ?? "",
     description: server?.description ?? "",
@@ -124,16 +130,16 @@ function McpEditor({ orgId, server, onClose }: { orgId?: string; server: McpServ
     <Modal
       open
       onClose={onClose}
-      title={server ? `Edit ${server.name}` : "Add MCP server"}
+      title={server ? t("settings.mcp.editTitle", { name: server.name }) : t("settings.mcp.addTitle")}
       footer={
         <>
           {server && (
             <Button variant="danger" onClick={() => api.deleteMcpServer(server.id).then(onClose)}>
-              Delete
+              {t("common.delete")}
             </Button>
           )}
           <Button variant="primary" onClick={save} loading={busy}>
-            Save
+            {t("common.save")}
           </Button>
         </>
       }
@@ -149,55 +155,58 @@ function McpEditor({ orgId, server, onClose }: { orgId?: string; server: McpServ
                   setForm({ ...form, name: ex.name, transport: ex.transport as "stdio" | "http", command: ex.command ?? "", args: ex.args ?? "", url: ex.url ?? "", env: ex.env ?? "" })
                 }
               >
-                {ex.label}
+                {ex.name === "remote" ? t("settings.mcp.remoteExample") : ex.label}
               </button>
             ))}
           </div>
         )}
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Name" hint="lowercase slug">
+          <Field label={t("settings.mcp.name")} hint={t("settings.mcp.nameHint")}>
             <Input disabled={!!server} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
           </Field>
-          <Field label="Transport">
+          <Field label={t("settings.mcp.transport")}>
             <Select disabled={!!server} value={form.transport} onChange={(e) => setForm({ ...form, transport: e.target.value as "stdio" | "http" })}>
-              <option value="stdio">stdio (local process)</option>
-              <option value="http">Streamable HTTP</option>
+              <option value="stdio">{t("settings.mcp.transportStdio")}</option>
+              <option value="http">{t("settings.mcp.transportHttp")}</option>
             </Select>
           </Field>
         </div>
-        <Field label="Description">
+        <Field label={t("settings.mcp.description")}>
           <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
         </Field>
         {form.transport === "stdio" ? (
           <>
             <div className="grid grid-cols-3 gap-3">
-              <Field label="Command">
+              <Field label={t("settings.mcp.command")}>
                 <Input value={form.command} onChange={(e) => setForm({ ...form, command: e.target.value })} placeholder="npx" />
               </Field>
               <div className="col-span-2">
-                <Field label="Arguments">
+                <Field label={t("settings.mcp.arguments")}>
                   <Input value={form.args} onChange={(e) => setForm({ ...form, args: e.target.value })} />
                 </Field>
               </div>
             </div>
-            <Field label="Working directory">
+            <Field label={t("settings.mcp.workingDirectory")}>
               <Input value={form.cwd} onChange={(e) => setForm({ ...form, cwd: e.target.value })} />
             </Field>
-            <Field label="Environment" hint={server?.envKeys.length ? `set: ${server.envKeys.join(", ")} (values hidden; re-enter to change)` : "KEY=value per line, stored encrypted"}>
+            <Field
+              label={t("settings.mcp.environment")}
+              hint={server?.envKeys.length ? t("settings.mcp.environmentSet", { keys: server.envKeys.join(", ") }) : t("settings.mcp.environmentHint")}
+            >
               <Textarea rows={3} className="font-mono text-xs" value={form.env} onChange={(e) => setForm({ ...form, env: e.target.value })} />
             </Field>
           </>
         ) : (
           <>
-            <Field label="URL">
+            <Field label={t("settings.mcp.url")}>
               <Input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} />
             </Field>
-            <Field label="Headers" hint={server?.headerKeys.length ? `set: ${server.headerKeys.join(", ")}` : "Header=value per line, stored encrypted"}>
+            <Field label={t("settings.mcp.headers")} hint={server?.headerKeys.length ? t("settings.mcp.headersSet", { keys: server.headerKeys.join(", ") }) : t("settings.mcp.headersHint")}>
               <Textarea rows={3} className="font-mono text-xs" value={form.headers} onChange={(e) => setForm({ ...form, headers: e.target.value })} placeholder="Authorization=Bearer …" />
             </Field>
           </>
         )}
-        <Toggle checked={form.enabled} onChange={(v) => setForm({ ...form, enabled: v })} label="Enabled" />
+        <Toggle checked={form.enabled} onChange={(v) => setForm({ ...form, enabled: v })} label={t("settings.mcp.enabled")} />
         <ErrorNote error={error} />
       </div>
     </Modal>

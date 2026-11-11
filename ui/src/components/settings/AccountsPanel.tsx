@@ -8,10 +8,13 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Badge, Button, Card, ErrorNote, Field, Input, Modal, Select } from "@/components/ui";
+import { formatCurrency, formatNumber, formatTime, useLocale, useT } from "@/i18n";
 import { api } from "@/lib/api";
 import type { Account, AccountSignIn, AccountTool } from "@/lib/types";
 
 export function AccountsPanel() {
+  const t = useT();
+  const locale = useLocale();
   const [accounts, setAccounts] = useState<Account[] | null>(null);
   const [tools, setTools] = useState<AccountTool[]>([]);
   const [adding, setAdding] = useState(false);
@@ -49,14 +52,8 @@ export function AccountsPanel() {
   return (
     <div className="space-y-3">
       <Card className="p-5 text-sm text-ink-2">
-        Claude Code and Codex agents use what the program is signed in to on this computer, unless you give them an account here: a sign-in of its own
-        (another subscription, a team plan) or an API key. Pick it on the agent&apos;s Kind tab. Several agents can share an account; when it reaches its
-        usage limit, all of them wait for the reset, or switch to their fallback account meanwhile. Pantheon never sees your password: signing in runs
-        the program&apos;s own login, and it keeps its token in the account&apos;s own folder.
-        <div className="mt-2 text-xs text-ink-3">
-          Antigravity (agy) and Hermes always use this computer&apos;s sign-in: agy keeps it in the system keychain, and Hermes keeps its own provider
-          keys (hermes auth).
-        </div>
+        {t("settings.account.intro")}
+        <div className="mt-2 text-xs text-ink-3">{t("settings.account.introNote")}</div>
       </Card>
       {accounts?.map((a) => {
         const cooling = a.coolingUntil ? new Date(a.coolingUntil) : null;
@@ -67,47 +64,50 @@ export function AccountsPanel() {
               <span className="font-semibold">{a.name}</span>
               <Badge>{a.toolLabel}</Badge>
               <Badge>{a.methodLabel}</Badge>
-              {a.status.signedIn === true && <Badge tone="ok">signed in</Badge>}
-              {a.status.signedIn === false && <Badge tone="bad">not signed in</Badge>}
-              {cooling && <Badge tone="warn">at its limit until {cooling.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</Badge>}
+              {a.status.signedIn === true && <Badge tone="ok">{t("settings.account.signedIn")}</Badge>}
+              {a.status.signedIn === false && <Badge tone="bad">{t("settings.account.notSignedIn")}</Badge>}
+              {cooling && <Badge tone="warn">{t("settings.account.atLimit", { time: formatTime(locale, cooling) })}</Badge>}
               <div className="ml-auto flex flex-wrap gap-1.5">
                 {method?.signIn && (
                   <Button size="sm" variant="primary" onClick={() => act(a.id, async () => setSigning(await api.signIn(a.id)))} loading={busy === a.id}>
-                    Sign in
+                    {t("settings.account.signIn")}
                   </Button>
                 )}
                 <Button size="sm" onClick={() => act(a.id, () => api.checkAccount(a.id))} loading={busy === a.id}>
-                  Check
+                  {t("settings.account.check")}
                 </Button>
                 {cooling && (
-                  <Button size="sm" variant="ghost" title="The limit is over (or you raised it)" onClick={() => act(a.id, () => api.updateAccount(a.id, { cooling: false }))}>
-                    Limit is over
+                  <Button size="sm" variant="ghost" title={t("settings.account.limitOverTitle")} onClick={() => act(a.id, () => api.updateAccount(a.id, { cooling: false }))}>
+                    {t("settings.account.limitOver")}
                   </Button>
                 )}
                 <Button
                   size="sm"
                   variant="ghost"
                   onClick={() => {
-                    if (window.confirm(`Remove ${a.name}? Its agents go back to this computer's sign-in.`)) void act(a.id, () => api.deleteAccount(a.id));
+                    if (window.confirm(t("settings.account.removeConfirm", { name: a.name }))) void act(a.id, () => api.deleteAccount(a.id));
                   }}
                 >
-                  Remove
+                  {t("common.remove")}
                 </Button>
               </div>
             </div>
             <div className="mt-1.5 text-xs text-ink-3">
-              {a.status.detail || (a.status.checkedAt ? "" : "not checked yet")}
-              {a.agents && a.agents.length > 0 ? ` · used by ${a.agents.join(", ")}` : " · no agents use it yet"}
+              {a.status.detail || (a.status.checkedAt ? "" : t("settings.account.notChecked"))}
+              {a.agents && a.agents.length > 0 ? ` · ${t("settings.account.usedBy", { agents: a.agents.join(", ") })}` : ` · ${t("settings.account.noAgents")}`}
               {(a.inputTokens > 0 || a.costUsd > 0) &&
-                ` · ${(a.inputTokens + a.outputTokens).toLocaleString()} tokens${a.costUsd > 0 ? `, $${a.costUsd.toFixed(2)}` : ""} so far`}
+                ` · ${t("settings.account.tokensSoFar", {
+                  tokens: formatNumber(locale, a.inputTokens + a.outputTokens),
+                  cost: a.costUsd > 0 ? t("settings.account.tokensSoFarCost", { cost: formatCurrency(locale, a.costUsd) }) : "",
+                })}`}
             </div>
             {cooling && a.coolingReason && <div className="mt-1 text-xs text-warn">{a.coolingReason}</div>}
           </Card>
         );
       })}
-      {accounts && accounts.length === 0 && <div className="text-sm text-ink-3">No accounts yet: agents use this computer&apos;s sign-ins.</div>}
+      {accounts && accounts.length === 0 && <div className="text-sm text-ink-3">{t("settings.account.empty")}</div>}
       <Button variant="primary" onClick={() => setAdding(true)}>
-        + Add account
+        {t("settings.account.add")}
       </Button>
       <ErrorNote error={error} />
       {adding && (
@@ -137,6 +137,7 @@ export function AccountsPanel() {
 }
 
 function AddAccount({ tools, onClose }: { tools: AccountTool[]; onClose: (created: Account | null) => void }) {
+  const t = useT();
   const [tool, setTool] = useState(tools[0]?.id ?? "claude-code");
   const methods = tools.find((t) => t.id === tool)?.methods ?? [];
   const [method, setMethod] = useState(methods[0]?.id ?? "");
@@ -160,16 +161,16 @@ function AddAccount({ tools, onClose }: { tools: AccountTool[]; onClose: (create
     <Modal
       open
       onClose={() => onClose(null)}
-      title="Add an account"
+      title={t("settings.account.addTitle")}
       footer={
         <Button variant="primary" onClick={() => void save()} loading={busy}>
-          {chosen?.signIn ? "Add and sign in" : "Add"}
+          {chosen?.signIn ? t("settings.account.addAndSignIn") : t("common.add")}
         </Button>
       }
     >
       <div className="grid gap-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="For">
+          <Field label={t("settings.account.for")}>
             <Select
               value={tool}
               onChange={(e) => {
@@ -184,7 +185,7 @@ function AddAccount({ tools, onClose }: { tools: AccountTool[]; onClose: (create
               ))}
             </Select>
           </Field>
-          <Field label="Signs in with">
+          <Field label={t("settings.account.signsInWith")}>
             <Select value={chosen?.id ?? ""} onChange={(e) => setMethod(e.target.value)}>
               {methods.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -194,19 +195,16 @@ function AddAccount({ tools, onClose }: { tools: AccountTool[]; onClose: (create
             </Select>
           </Field>
         </div>
-        <Field label="Name" hint="how you'll know it, e.g. Work Max plan">
+        <Field label={t("settings.account.name")} hint={t("settings.account.nameHint")}>
           <Input value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
         {chosen && !chosen.signIn && (
-          <Field label="API key" hint="stored encrypted; only ever given to this program when an agent works">
+          <Field label={t("settings.account.apiKey")} hint={t("settings.account.apiKeyHint")}>
             <Input type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} />
           </Field>
         )}
         {chosen?.signIn && (
-          <div className="text-xs text-ink-3">
-            Next, the program&apos;s own login starts: it opens your browser (or shows a link here) to sign in, and asks you to paste a code back if it
-            needs one.
-          </div>
+          <div className="text-xs text-ink-3">{t("settings.account.signInNext")}</div>
         )}
         <ErrorNote error={error} />
       </div>
@@ -215,6 +213,7 @@ function AddAccount({ tools, onClose }: { tools: AccountTool[]; onClose: (create
 }
 
 function SignIn({ start, name, onClose }: { start: AccountSignIn; name: string; onClose: () => void }) {
+  const t = useT();
   const [s, setS] = useState(start);
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -250,17 +249,17 @@ function SignIn({ start, name, onClose }: { start: AccountSignIn; name: string; 
       open
       wide
       onClose={close}
-      title={`Sign in: ${name}`}
+      title={t("settings.account.signInTitle", { name })}
       footer={
         <Button variant={s.done ? "primary" : "ghost"} onClick={close}>
-          {s.done ? "Done" : "Cancel"}
+          {s.done ? t("settings.account.done") : t("settings.account.cancel")}
         </Button>
       }
     >
       <div className="grid gap-3 text-sm">
         {s.urls.length > 0 && (
           <div className="grid gap-1.5">
-            <div className="text-ink-2">If your browser didn&apos;t open, sign in here:</div>
+            <div className="text-ink-2">{t("settings.account.signInHere")}</div>
             {s.urls.map((u) => (
               <a key={u} href={u} target="_blank" rel="noreferrer" className="break-all text-accent hover:underline">
                 {u}
@@ -269,17 +268,17 @@ function SignIn({ start, name, onClose }: { start: AccountSignIn; name: string; 
           </div>
         )}
         <pre ref={out} className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md border border-line bg-bg p-3 font-mono text-xs text-ink-2">
-          {s.output || "Starting…"}
+          {s.output || t("settings.account.starting")}
         </pre>
         {!s.done ? (
           <div className="flex gap-2">
-            <Input value={code} placeholder="Paste a code here if it asks for one" onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && code && void send()} />
+            <Input value={code} placeholder={t("settings.account.codePlaceholder")} onChange={(e) => setCode(e.target.value)} onKeyDown={(e) => e.key === "Enter" && code && void send()} />
             <Button onClick={() => void send()} disabled={!code}>
-              Send
+              {t("settings.account.send")}
             </Button>
           </div>
         ) : (
-          <div className={s.ok ? "text-ok" : "text-bad"}>{s.ok ? "Signed in." : "The sign-in didn't finish: see what it said above, and try again."}</div>
+          <div className={s.ok ? "text-ok" : "text-bad"}>{s.ok ? t("settings.account.signedInDone") : t("settings.account.signInFailed")}</div>
         )}
         <ErrorNote error={error} />
       </div>

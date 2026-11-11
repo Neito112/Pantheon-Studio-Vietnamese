@@ -8,6 +8,7 @@
 import type { ThreeEvent } from "@react-three/fiber";
 import { useMemo, useRef, useState } from "react";
 import * as THREE from "three";
+import { useT } from "@/i18n";
 import { CATALOG, itemBounds } from "./catalog";
 import { newId, overlap, type OfficeDesign, type Rect } from "./design";
 import { patchItem, patchRoom, snap, useDesigner } from "./designerStore";
@@ -20,6 +21,7 @@ type Drag =
   | { kind: "draw"; x0: number; z0: number; x1: number; z1: number };
 
 export function DesignerLayer({ design, onDragging }: { design: OfficeDesign; onDragging: (v: boolean) => void }) {
+  const t = useT();
   const tool = useDesigner((s) => s.tool);
   const selection = useDesigner((s) => s.selection);
   const [ghost, setGhost] = useState<[number, number] | null>(null);
@@ -93,7 +95,7 @@ export function DesignerLayer({ design, onDragging }: { design: OfficeDesign; on
         const id = newId("rm");
         useDesigner.getState().update((dz) => ({
           ...dz,
-          rooms: [...dz.rooms, { id, name: "New room", type: "meeting", ...r, walls: "glass", door: "w" }],
+          rooms: [...dz.rooms, { id, name: t("office.newRoom"), type: "meeting", ...r, walls: "glass", door: "w" }],
         }));
         useDesigner.getState().setTool({ kind: "select" });
         useDesigner.getState().select({ type: "room", id });

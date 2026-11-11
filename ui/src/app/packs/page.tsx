@@ -6,28 +6,30 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Markdown } from "@/components/Markdown";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import type { LibraryInfo, PackInfo, PackKind, PackListing } from "@/lib/types";
 import { Icon } from "@/studio/icons";
 import { agentHue, hsl } from "@/studio/look";
 
 type Filter = "all" | "library" | "office" | "templates" | "plugin" | "yours";
-const FILTERS: { id: Filter; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "library", label: "Libraries" },
-  { id: "office", label: "Office" },
-  { id: "templates", label: "Templates" },
-  { id: "plugin", label: "Plugins" },
-  { id: "yours", label: "Added by you" },
-];
+const FILTERS: Filter[] = ["all", "library", "office", "templates", "plugin", "yours"];
+const FILTER_LABEL: Record<Filter, string> = {
+  all: "common.all",
+  library: "packs.filterLibraries",
+  office: "packs.filterOffice",
+  templates: "packs.filterTemplates",
+  plugin: "packs.filterPlugins",
+  yours: "packs.filterYours",
+};
 const KIND_LABEL: Record<PackKind, string> = {
-  library: "Library",
-  furniture: "Furniture",
-  characters: "Characters",
-  themes: "Themes",
-  assets: "3D assets",
-  templates: "Templates",
-  plugin: "Plugin",
+  library: "packs.kindLibrary",
+  furniture: "packs.kindFurniture",
+  characters: "packs.kindCharacters",
+  themes: "packs.kindThemes",
+  assets: "packs.kindAssets",
+  templates: "packs.kindTemplates",
+  plugin: "packs.kindPlugin",
 };
 const OFFICE_KINDS: PackKind[] = ["furniture", "characters", "themes", "assets"];
 
@@ -41,6 +43,7 @@ const btn =
   "inline-flex h-9 items-center gap-2 rounded-xl border border-[var(--st-edge)] bg-[var(--st-glass-2)] px-3.5 text-[13px] text-[var(--st-ink-2)] transition-colors hover:border-[var(--st-edge-2)] hover:text-[var(--st-ink)] disabled:opacity-50";
 
 export default function PacksPage() {
+  const t = useT();
   const [listing, setListing] = useState<PackListing | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
   const [docs, setDocs] = useState<LibraryInfo | null>(null);
@@ -76,15 +79,14 @@ export default function PacksPage() {
               <span className="grid size-10 place-items-center rounded-xl text-white" style={{ background: "linear-gradient(140deg, #9d8cff, #4cc9f0)" }}>
                 <Icon name="packs" size={20} />
               </span>
-              <h1 className="st-display text-[30px] leading-none">Packs</h1>
+              <h1 className="st-display text-[30px] leading-none">{t("packs.title")}</h1>
             </div>
             <p className="mt-3 max-w-[640px] text-[14px] leading-relaxed text-[var(--st-ink-2)]">
-              Everything Pantheon uses beyond its core comes in packs: libraries for the Stage, 3D assets, templates and plugins. Add your own, switch any off, remove the
-              ones you added. The originals ship as packs too.
+              {t("packs.subtitle")}
             </p>
           </div>
-          <button className={btn} onClick={() => act(() => api.reloadPacks(), "Reloaded the packs folder.")} title="Pick up packs changed by hand">
-            <Icon name="sessions" size={14} /> Reload
+          <button className={btn} onClick={() => act(() => api.reloadPacks(), t("packs.reloaded"))} title={t("packs.reloadTitle")}>
+            <Icon name="sessions" size={14} /> {t("packs.reload")}
           </button>
         </header>
 
@@ -112,20 +114,20 @@ export default function PacksPage() {
         </AnimatePresence>
 
         <div className="mb-4 mt-7 flex flex-wrap items-center gap-1.5">
-          {FILTERS.map((f) => {
-            const n = listing ? listing.packs.filter((p) => shows(p, f.id)).length : 0;
+          {FILTERS.map((id) => {
+            const n = listing ? listing.packs.filter((p) => shows(p, id)).length : 0;
             return (
               <button
-                key={f.id}
-                onClick={() => setFilter(f.id)}
+                key={id}
+                onClick={() => setFilter(id)}
                 className="relative rounded-full px-3.5 py-1.5 text-[13px] transition-colors"
-                style={{ color: filter === f.id ? "var(--st-ink)" : "var(--st-ink-3)" }}
+                style={{ color: filter === id ? "var(--st-ink)" : "var(--st-ink-3)" }}
               >
-                {filter === f.id && (
+                {filter === id && (
                   <motion.span layoutId="pack-filter" className="absolute inset-0 rounded-full" style={{ background: "rgba(157,140,255,0.16)", boxShadow: "inset 0 0 0 1px rgba(157,140,255,0.35)" }} />
                 )}
                 <span className="relative">
-                  {f.label} <span className="st-mono text-[11px] opacity-60">{n}</span>
+                  {t(FILTER_LABEL[id])} <span className="st-mono text-[11px] opacity-60">{n}</span>
                 </span>
               </button>
             );
@@ -133,9 +135,9 @@ export default function PacksPage() {
         </div>
 
         {!listing ? (
-          <div className="py-16 text-center text-[var(--st-ink-3)]">Loading packs…</div>
+          <div className="py-16 text-center text-[var(--st-ink-3)]">{t("packs.loading")}</div>
         ) : shown.length === 0 ? (
-          <div className={`${glass} px-6 py-14 text-center text-[var(--st-ink-3)]`}>Nothing here yet.</div>
+          <div className={`${glass} px-6 py-14 text-center text-[var(--st-ink-3)]`}>{t("common.emptyTitle")}</div>
         ) : (
           <motion.div layout className="grid gap-3 [grid-template-columns:repeat(auto-fill,minmax(330px,1fr))]">
             <AnimatePresence initial={false}>
@@ -143,8 +145,8 @@ export default function PacksPage() {
                 <PackCard
                   key={p.id}
                   pack={p}
-                  onToggle={(on) => act(() => api.setPackEnabled(p.id, on), `${p.name} is ${on ? "on" : "off"}.`)}
-                  onRemove={() => act(() => api.removePack(p.id), `Removed ${p.name}.`)}
+                  onToggle={(on) => act(() => api.setPackEnabled(p.id, on), t(on ? "packs.packOn" : "packs.packOff", { name: p.name }))}
+                  onRemove={() => act(() => api.removePack(p.id), t("packs.removed", { name: p.name }))}
                   onDocs={(lib) => setDocs(lib)}
                 />
               ))}
@@ -158,6 +160,7 @@ export default function PacksPage() {
 }
 
 function AddBar({ onAdded, onError, dir }: { onAdded: (text: string) => void; onError: (text: string) => void; dir: string }) {
+  const t = useT();
   const [spec, setSpec] = useState("");
   const [folder, setFolder] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -180,7 +183,7 @@ function AddBar({ onAdded, onError, dir }: { onAdded: (text: string) => void; on
       const p = await api.addNpmLibrary(spec.trim());
       setSpec("");
       const names = p.libraries[0]?.imports.filter((i) => !i.startsWith("three/")).join(", ");
-      return `Added ${p.name} ${p.version}: pages import it as "${names}".` + (p.warnings.length ? `\n${p.warnings.map((w) => `• ${w}`).join("\n")}` : "");
+      return t("packs.addedNpm", { name: p.name, version: p.version, imports: names }) + (p.warnings.length ? `\n${p.warnings.map((w) => `• ${w}`).join("\n")}` : "");
     });
 
   return (
@@ -193,15 +196,15 @@ function AddBar({ onAdded, onError, dir }: { onAdded: (text: string) => void; on
             value={spec}
             onChange={(e) => setSpec(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && addNpm()}
-            placeholder="Any npm library for the Stage: chart.js, matter-js@0.20, three-globe…"
+            placeholder={t("packs.npmPlaceholder")}
             className="h-10 min-w-0 flex-1 bg-transparent text-[14px] text-[var(--st-ink)] outline-none placeholder:text-[var(--st-ink-3)]"
           />
           <button className={btn} disabled={!spec.trim() || busy !== null} onClick={addNpm}>
-            {busy === "npm" ? <Spinner /> : <Icon name="plus" size={14} />} Add library
+            {busy === "npm" ? <Spinner /> : <Icon name="plus" size={14} />} {t("packs.addLibrary")}
           </button>
         </div>
-        <button className={btn} disabled={busy !== null} onClick={() => file.current?.click()} title="A pack as a .zip (pack.json inside)">
-          {busy === "zip" ? <Spinner /> : <Icon name="files" size={14} />} Upload a pack
+        <button className={btn} disabled={busy !== null} onClick={() => file.current?.click()} title={t("packs.uploadPackTitle")}>
+          {busy === "zip" ? <Spinner /> : <Icon name="files" size={14} />} {t("packs.uploadPack")}
         </button>
         <input
           ref={file}
@@ -211,25 +214,25 @@ function AddBar({ onAdded, onError, dir }: { onAdded: (text: string) => void; on
           onChange={(e) => {
             const f = e.target.files?.[0];
             e.target.value = "";
-            if (f) void run("zip", async () => `Added ${(await api.uploadPack(f)).name}.`);
+            if (f) void run("zip", async () => t("packs.addedPack", { name: (await api.uploadPack(f)).name }));
           }}
         />
         <div className="flex min-w-0 max-w-full items-center gap-1.5 rounded-xl bg-black/20 pl-3">
           <input
             value={folder}
             onChange={(e) => setFolder(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && folder.trim() && run("folder", async () => `Added ${(await api.addPackFolder(folder.trim())).name}.`)}
-            placeholder="…or a pack folder on this computer"
+            onKeyDown={(e) => e.key === "Enter" && folder.trim() && run("folder", async () => t("packs.addedPack", { name: (await api.addPackFolder(folder.trim())).name }))}
+            placeholder={t("packs.folderPlaceholder")}
             className="h-10 w-[230px] min-w-0 max-w-full bg-transparent text-[13px] text-[var(--st-ink)] outline-none placeholder:text-[var(--st-ink-3)]"
           />
-          <button className={btn} disabled={!folder.trim() || busy !== null} onClick={() => run("folder", async () => `Added ${(await api.addPackFolder(folder.trim())).name}.`)}>
-            {busy === "folder" ? <Spinner /> : <Icon name="plus" size={14} />} Add
+          <button className={btn} disabled={!folder.trim() || busy !== null} onClick={() => run("folder", async () => t("packs.addedPack", { name: (await api.addPackFolder(folder.trim())).name }))}>
+            {busy === "folder" ? <Spinner /> : <Icon name="plus" size={14} />} {t("common.add")}
           </button>
         </div>
       </div>
       {dir && (
         <div className="relative px-3 pb-1 pt-2 text-[11.5px] text-[var(--st-ink-3)]">
-          Your packs live in <span className="st-mono break-all text-[var(--st-ink-2)]">{dir}</span>
+          {t("packs.liveIn")} <span className="st-mono break-all text-[var(--st-ink-2)]">{dir}</span>
         </div>
       )}
     </div>
@@ -241,6 +244,7 @@ function Spinner() {
 }
 
 function PackCard({ pack: p, onToggle, onRemove, onDocs }: { pack: PackInfo; onToggle: (on: boolean) => void; onRemove: () => void; onDocs: (lib: LibraryInfo) => void }) {
+  const t = useT();
   const [confirm, setConfirm] = useState(false);
   const hue = agentHue({ name: p.id, avatar: {} });
   const off = !p.enabled;
@@ -270,20 +274,20 @@ function PackCard({ pack: p, onToggle, onRemove, onDocs }: { pack: PackInfo; onT
           <div className="mt-1 flex flex-wrap gap-1">
             {p.kinds.map((k) => (
               <span key={k} className={chip} style={{ borderColor: "var(--st-edge-2)", color: "var(--st-ink-2)" }}>
-                {KIND_LABEL[k]}
+                {t(KIND_LABEL[k])}
               </span>
             ))}
             {p.core ? (
               <span className={chip} style={{ borderColor: "rgba(76,201,240,0.4)", color: "var(--st-cyan)" }}>
-                {p.libraries.some((l) => l.core) ? "Part of the Stage" : "Required"}
+                {p.libraries.some((l) => l.core) ? t("packs.partOfStage") : t("common.required")}
               </span>
             ) : p.bundled ? (
               <span className={chip} style={{ borderColor: "var(--st-edge)", color: "var(--st-ink-3)" }}>
-                Built in
+                {t("packs.builtIn")}
               </span>
             ) : (
               <span className={chip} style={{ borderColor: "rgba(157,140,255,0.45)", color: "var(--st-violet)" }}>
-                Yours
+                {t("packs.yours")}
               </span>
             )}
           </div>
@@ -305,10 +309,10 @@ function PackCard({ pack: p, onToggle, onRemove, onDocs }: { pack: PackInfo; onT
                   {i}
                 </code>
               ))}
-            {lib.requires.length > 0 && <span className="text-[11.5px] text-[var(--st-ink-3)]">uses {lib.requires.join(", ")}</span>}
+            {lib.requires.length > 0 && <span className="text-[11.5px] text-[var(--st-ink-3)]">{t("packs.uses", { names: lib.requires.join(", ") })}</span>}
             {lib.hasDocs && (
               <button onClick={() => onDocs(lib)} className="ml-auto text-[12px] text-[var(--st-violet)] hover:underline">
-                Docs agents read →
+                {t("packs.docsAgentsRead")}
               </button>
             )}
           </div>
@@ -316,15 +320,15 @@ function PackCard({ pack: p, onToggle, onRemove, onDocs }: { pack: PackInfo; onT
         {(p.assets.length > 0 || p.templates.length > 0 || p.tools.length > 0 || p.office.items + p.office.characters + p.office.themes > 0) && (
           <div className="flex flex-wrap gap-1.5 text-[12px] text-[var(--st-ink-3)]">
             {[
-              p.office.items && `${p.office.items} furniture`,
-              p.office.characters && `${p.office.characters} characters`,
-              p.office.themes && `${p.office.themes} office themes`,
+              p.office.items && t("packs.furnitureCount", { count: p.office.items }),
+              p.office.characters && t("packs.characterCount", { count: p.office.characters }),
+              p.office.themes && t("packs.themeCount", { count: p.office.themes }),
             ]
               .filter(Boolean)
               .join(" · ")}
-            {p.assets.length > 0 && <span>{p.office.items + p.office.characters ? "· " : ""}{p.assets.length} 3D assets</span>}
-            {p.templates.length > 0 && <span>· {p.templates.length} templates</span>}
-            {p.tools.length > 0 && <span>· tools: {p.tools.join(", ")}</span>}
+            {p.assets.length > 0 && <span>{p.office.items + p.office.characters ? "· " : ""}{t("packs.assetCount", { count: p.assets.length })}</span>}
+            {p.templates.length > 0 && <span>· {t("packs.templateCount", { count: p.templates.length })}</span>}
+            {p.tools.length > 0 && <span>· {t("packs.toolsList", { names: p.tools.join(", ") })}</span>}
           </div>
         )}
       </div>
@@ -333,17 +337,17 @@ function PackCard({ pack: p, onToggle, onRemove, onDocs }: { pack: PackInfo; onT
         <div className="mt-auto flex items-center justify-end gap-2 pt-3">
           {confirm ? (
             <>
-              <span className="text-[12px] text-[var(--st-ink-3)]">Delete its folder?</span>
+              <span className="text-[12px] text-[var(--st-ink-3)]">{t("packs.deleteFolder")}</span>
               <button className="text-[12px] text-[var(--st-ink-3)] hover:text-[var(--st-ink)]" onClick={() => setConfirm(false)}>
-                Keep
+                {t("files.keep")}
               </button>
               <button className="rounded-lg bg-[rgba(255,93,108,0.15)] px-2.5 py-1 text-[12px] text-[var(--st-red)]" onClick={onRemove}>
-                Remove
+                {t("common.remove")}
               </button>
             </>
           ) : (
             <button className="text-[12px] text-[var(--st-ink-3)] opacity-0 transition-opacity hover:text-[var(--st-red)] group-hover:opacity-100" onClick={() => setConfirm(true)}>
-              Remove
+              {t("common.remove")}
             </button>
           )}
         </div>
@@ -353,12 +357,13 @@ function PackCard({ pack: p, onToggle, onRemove, onDocs }: { pack: PackInfo; onT
 }
 
 function Switch({ on, locked, onChange }: { on: boolean; locked: boolean; onChange: (on: boolean) => void }) {
+  const t = useT();
   return (
     <button
       type="button"
       disabled={locked}
       onClick={() => onChange(!on)}
-      title={locked ? "Pantheon needs it: replace it with a pack of the same id instead" : on ? "Switch off" : "Switch on"}
+      title={locked ? t("packs.coreSwitchTitle") : on ? t("common.disable") : t("common.enable")}
       className="relative mt-1 h-[22px] w-[40px] shrink-0 rounded-full transition-colors disabled:cursor-not-allowed"
       style={{ background: on ? "var(--st-violet-2)" : "rgba(255,255,255,0.12)", opacity: locked ? 0.5 : 1 }}
     >
@@ -372,12 +377,13 @@ function Switch({ on, locked, onChange }: { on: boolean; locked: boolean; onChan
 }
 
 function DocsDrawer({ lib, onClose }: { lib: LibraryInfo | null; onClose: () => void }) {
+  const t = useT();
   const [docs, setDocs] = useState<string>("");
   useEffect(() => {
     if (!lib) return;
     setDocs("");
-    api.libraryDocs(lib.id).then((d) => setDocs(d.docs)).catch((e) => setDocs(`(couldn't load: ${(e as Error).message})`));
-  }, [lib]);
+    api.libraryDocs(lib.id).then((d) => setDocs(d.docs)).catch((e) => setDocs(t("packs.couldNotLoad", { error: (e as Error).message })));
+  }, [lib, t]);
   return (
     <AnimatePresence>
       {lib && (
@@ -393,7 +399,7 @@ function DocsDrawer({ lib, onClose }: { lib: LibraryInfo | null; onClose: () => 
             <div className="flex items-center gap-3 border-b border-[var(--st-edge)] px-5 py-4">
               <div className="min-w-0 flex-1">
                 <div className="text-[16px] font-medium">{lib.name}</div>
-                <div className="text-[12px] text-[var(--st-ink-3)]">What an agent with this library reads (stage_docs)</div>
+                <div className="text-[12px] text-[var(--st-ink-3)]">{t("packs.docsSubtitle")}</div>
               </div>
               <button onClick={onClose} className="text-[var(--st-ink-3)] hover:text-[var(--st-ink)]">
                 <Icon name="close" size={16} />
@@ -401,7 +407,7 @@ function DocsDrawer({ lib, onClose }: { lib: LibraryInfo | null; onClose: () => 
             </div>
             <div className="studio-page min-h-0 flex-1 overflow-y-auto px-5 py-4 text-[13.5px]">
               {/* A README is Markdown; the shipped libraries' docs are a terse code-like reference. */}
-              {docs ? <Markdown>{/^#|\n#/.test(docs) ? docs : "```\n" + docs + "\n```"}</Markdown> : <div className="text-[var(--st-ink-3)]">Loading…</div>}
+              {docs ? <Markdown>{/^#|\n#/.test(docs) ? docs : "```\n" + docs + "\n```"}</Markdown> : <div className="text-[var(--st-ink-3)]">{t("common.loading")}</div>}
             </div>
           </motion.aside>
         </>

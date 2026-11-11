@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { AgentAvatar, StatusBadge } from "@/components/agent";
 import { Markdown } from "@/components/Markdown";
 import { Badge, Button, cx, ErrorNote, Field, Input, Select, Tabs, Textarea, Toggle } from "@/components/ui";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import { ContextControls } from "@/components/ContextControls";
 import { AgentFiles } from "@/components/Files";
@@ -17,6 +18,7 @@ import { useOrg } from "@/store/org";
 type Tab = "profile" | "kind" | "model" | "tools" | "files" | "permissions" | "workspace" | "look";
 
 export function AgentEditor({ agentId, onClose }: { agentId: string; onClose: () => void }) {
+  const t = useT();
   const agent = useOrg((s) => s.agents[agentId]);
   const orgId = useOrg((s) => s.orgId)!;
   const [tab, setTab] = useState<Tab>("profile");
@@ -66,14 +68,14 @@ export function AgentEditor({ agentId, onClose }: { agentId: string; onClose: ()
           value={tab}
           onChange={setTab}
           items={[
-            { value: "profile", label: "Profile" },
-            { value: "kind", label: "Kind" },
-            { value: "model", label: "Model" },
-            { value: "tools", label: `Tools (${draft.tools.length})` },
-            { value: "files", label: "Files" },
-            { value: "permissions", label: "Permissions" },
-            { value: "workspace", label: "Workspace" },
-            { value: "look", label: "Look" },
+            { value: "profile", label: t("team.tabProfile") },
+            { value: "kind", label: t("team.tabKind") },
+            { value: "model", label: t("team.tabModel") },
+            { value: "tools", label: t("team.tabTools", { count: draft.tools.length }) },
+            { value: "files", label: t("team.tabFiles") },
+            { value: "permissions", label: t("team.tabPermissions") },
+            { value: "workspace", label: t("team.tabWorkspace") },
+            { value: "look", label: t("team.tabLook") },
           ]}
         />
       </div>
@@ -89,13 +91,13 @@ export function AgentEditor({ agentId, onClose }: { agentId: string; onClose: ()
       </div>
       <div className="flex items-center gap-2 border-t border-line px-5 py-3">
         <ErrorNote error={error} />
-        {saved && <span className="text-sm text-ok">Saved</span>}
+        {saved && <span className="text-sm text-ok">{t("team.saved")}</span>}
         <div className="ml-auto flex gap-2">
           <Button variant="ghost" disabled={!dirty} onClick={() => setDraft(agent)}>
-            Discard
+            {t("team.discard")}
           </Button>
           <Button variant="primary" disabled={!dirty} loading={saving} onClick={save}>
-            Save changes
+            {t("team.saveChanges")}
           </Button>
         </div>
       </div>
@@ -126,38 +128,39 @@ function pick(a: Agent): Partial<Agent> {
 type SetFn = <K extends keyof Agent>(k: K, v: Agent[K]) => void;
 
 function ProfileTab({ draft, set }: { draft: Agent; set: SetFn }) {
+  const t = useT();
   const [preview, setPreview] = useState(false);
   return (
     <div className="grid gap-4">
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Name">
+        <Field label={t("team.agentName")}>
           <Input value={draft.name} onChange={(e) => set("name", e.target.value)} />
         </Field>
-        <Field label="Role">
+        <Field label={t("team.agentRole")}>
           <Input value={draft.role} onChange={(e) => set("role", e.target.value)} />
         </Field>
-        <Field label="Team" hint="Teams sit together in the office">
+        <Field label={t("team.agentTeam")} hint={t("team.profileTeamHint")}>
           <Input value={draft.team} onChange={(e) => set("team", e.target.value)} />
         </Field>
-        <Field label="Status">
+        <Field label={t("team.profileStatus")}>
           <Select value={draft.status} onChange={(e) => set("status", e.target.value as Agent["status"])}>
-            <option value="active">Active</option>
-            <option value="standby">Standby (starts when a task is ready for it)</option>
-            <option value="paused">Paused (keeps inbox, doesn&apos;t work)</option>
-            <option value="disabled">Disabled (receives nothing)</option>
+            <option value="active">{t("team.statusActive")}</option>
+            <option value="standby">{t("team.statusStandby")}</option>
+            <option value="paused">{t("team.statusPaused")}</option>
+            <option value="disabled">{t("team.statusDisabled")}</option>
           </Select>
         </Field>
       </div>
       <div>
         <div className="mb-1.5 flex items-center justify-between">
-          <span className="text-xs font-medium text-ink-2">Persona — the agent&apos;s system prompt</span>
+          <span className="text-xs font-medium text-ink-2">{t("team.personaTitle")}</span>
           <button className="text-xs text-info hover:underline cursor-pointer" onClick={() => setPreview((v) => !v)}>
-            {preview ? "Edit" : "Preview"}
+            {preview ? t("team.edit") : t("team.preview")}
           </button>
         </div>
         {preview ? (
           <div className="min-h-64 rounded-md border border-line bg-bg p-3">
-            <Markdown>{draft.persona || "_Empty_"}</Markdown>
+            <Markdown>{draft.persona || t("team.personaEmpty")}</Markdown>
           </div>
         ) : (
           <Textarea className="min-h-80 font-mono text-[13px]" value={draft.persona} onChange={(e) => set("persona", e.target.value)} />
@@ -168,15 +171,13 @@ function ProfileTab({ draft, set }: { draft: Agent; set: SetFn }) {
             onChange={(on) => set("persona", toggleSte(draft.persona, on))}
             label={
               <span>
-                Write in <b>ASD-STE100 Simplified Technical English</b>{" "}
-                <span className="text-ink-3">(adds a line to the persona; Pantheon adds the STE rules to the prompt)</span>
+                {t("team.steToggleLead")} <b>{t("team.steToggleBold")}</b>{" "}
+                <span className="text-ink-3">{t("team.steToggleHint")}</span>
               </span>
             }
           />
         </div>
-        <div className="mt-1.5 text-xs text-ink-3">
-          Pantheon adds the org context, colleagues, open tasks, operating rules and tool list automatically — focus on who this agent is and how it works.
-        </div>
+        <div className="mt-1.5 text-xs text-ink-3">{t("team.personaAutoContext")}</div>
       </div>
     </div>
   );
@@ -184,6 +185,7 @@ function ProfileTab({ draft, set }: { draft: Agent; set: SetFn }) {
 
 /** Provider, model, thinking and limits for one agent (the editor's Model tab; also Zeus and Argus). */
 export function ModelSettings({ model, onChange }: { model: Agent["model"]; onChange: (m: Agent["model"]) => void }) {
+  const t = useT();
   const [providers, setProviders] = useState<Provider[]>([]);
   const org = useOrg((s) => s.org);
   useEffect(() => {
@@ -195,9 +197,12 @@ export function ModelSettings({ model, onChange }: { model: Agent["model"]; onCh
   const orgDefault = org?.settings.default_model;
   return (
     <div className="grid gap-4">
-      <Field label="Provider" hint={!m.provider_id ? `Inherits ${orgDefault?.provider_id ? "the org default" : "the global default"}` : undefined}>
+      <Field
+        label={t("team.provider")}
+        hint={!m.provider_id ? (orgDefault?.provider_id ? t("team.inheritsOrgDefault") : t("team.inheritsGlobalDefault")) : undefined}
+      >
         <Select value={m.provider_id ?? ""} onChange={(e) => upd({ provider_id: e.target.value || undefined, model: undefined })}>
-          <option value="">Default</option>
+          <option value="">{t("team.modelDefault")}</option>
           {providers.map((p) => (
             <option key={p.id} value={p.id}>
               {p.name} ({p.type})
@@ -205,8 +210,8 @@ export function ModelSettings({ model, onChange }: { model: Agent["model"]; onCh
           ))}
         </Select>
       </Field>
-      <Field label="Model">
-        <Input list="models" value={m.model ?? ""} onChange={(e) => upd({ model: e.target.value || undefined })} placeholder={provider?.defaultModel ?? "provider default"} />
+      <Field label={t("common.model")}>
+        <Input list="models" value={m.model ?? ""} onChange={(e) => upd({ model: e.target.value || undefined })} placeholder={provider?.defaultModel ?? t("team.modelPlaceholder")} />
         <datalist id="models">
           {(provider?.models ?? []).map((x) => (
             <option key={x.id} value={x.id} />
@@ -214,48 +219,48 @@ export function ModelSettings({ model, onChange }: { model: Agent["model"]; onCh
         </datalist>
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label={`Temperature: ${m.temperature ?? "provider default"}`}>
+        <Field label={t("team.temperature", { value: m.temperature ?? t("team.providerDefault") })}>
           {m.temperature === undefined ? (
-            <Button size="sm" variant="ghost" onClick={() => upd({ temperature: 0.7 })} title="Override the provider's temperature for this agent">
-              Set a temperature…
+            <Button size="sm" variant="ghost" onClick={() => upd({ temperature: 0.7 })} title={t("team.overrideTemperatureTitle")}>
+              {t("team.setTemperature")}
             </Button>
           ) : (
             <div className="flex items-center gap-2">
               <input type="range" min={0} max={1.5} step={0.05} value={m.temperature} onChange={(e) => upd({ temperature: Number(e.target.value) })} className="w-full accent-[#8b7cff]" />
-              <Button size="sm" variant="ghost" onClick={() => upd({ temperature: undefined })} title="Use the provider's temperature">
-                Default
+              <Button size="sm" variant="ghost" onClick={() => upd({ temperature: undefined })} title={t("team.useProviderTemperature")}>
+                {t("team.modelDefault")}
               </Button>
             </div>
           )}
         </Field>
-        <Field label="Thinking" hint="Off skips thinking (faster, cheaper). A server that doesn't offer a level gets the closest one it does.">
+        <Field label={t("team.thinking")} hint={t("team.thinkingHint")}>
           <Select value={m.reasoning_effort ?? ""} onChange={(e) => upd({ reasoning_effort: (e.target.value || undefined) as Agent["model"]["reasoning_effort"] })}>
-            <option value="">Extra high (default)</option>
-            <option value="off">Off — no thinking</option>
-            <option value="low">Low</option>
-            <option value="medium">Medium</option>
-            <option value="high">High</option>
-            <option value="xhigh">Extra high (always)</option>
+            <option value="">{t("team.thinkingExtraHigh")}</option>
+            <option value="off">{t("team.thinkingOff")}</option>
+            <option value="low">{t("team.thinkingLow")}</option>
+            <option value="medium">{t("team.thinkingMedium")}</option>
+            <option value="high">{t("team.thinkingHigh")}</option>
+            <option value="xhigh">{t("team.thinkingExtraHighAlways")}</option>
           </Select>
         </Field>
-        <Field label="Max output tokens">
-          <Input type="number" value={m.max_tokens ?? ""} onChange={(e) => upd({ max_tokens: e.target.value ? Number(e.target.value) : undefined })} placeholder="131072 (default)" />
+        <Field label={t("team.maxOutputTokens")}>
+          <Input type="number" value={m.max_tokens ?? ""} onChange={(e) => upd({ max_tokens: e.target.value ? Number(e.target.value) : undefined })} placeholder={t("team.maxOutputTokensPlaceholder")} />
         </Field>
-        <Field label="Context window" hint="Compaction starts at 60%">
-          <Input type="number" value={m.context_window ?? ""} onChange={(e) => upd({ context_window: e.target.value ? Number(e.target.value) : undefined })} placeholder="from provider (else 200k)" />
+        <Field label={t("team.contextWindow")} hint={t("team.contextWindowHint")}>
+          <Input type="number" value={m.context_window ?? ""} onChange={(e) => upd({ context_window: e.target.value ? Number(e.target.value) : undefined })} placeholder={t("team.contextWindowPlaceholder")} />
         </Field>
-        <Field label="Sees images" hint="For the browser, computer use and Stage checks">
+        <Field label={t("team.seesImages")} hint={t("team.seesImagesHint")}>
           <Select value={m.vision === undefined ? "" : String(m.vision)} onChange={(e) => upd({ vision: e.target.value === "" ? undefined : e.target.value === "true" })}>
-            <option value="">From the provider&apos;s model settings</option>
-            <option value="true">Yes — send screenshots</option>
-            <option value="false">No — text only</option>
+            <option value="">{t("team.visionFromProvider")}</option>
+            <option value="true">{t("team.visionYes")}</option>
+            <option value="false">{t("team.visionNo")}</option>
           </Select>
         </Field>
-        <Field label="Watches video" hint="Videos you give it; without, it gets frames">
+        <Field label={t("team.watchesVideo")} hint={t("team.watchesVideoHint")}>
           <Select value={m.video === undefined ? "" : String(m.video)} onChange={(e) => upd({ video: e.target.value === "" ? undefined : e.target.value === "true" })}>
-            <option value="">From the model and its server</option>
-            <option value="true">Yes — send videos</option>
-            <option value="false">No — frames instead</option>
+            <option value="">{t("team.videoFromModel")}</option>
+            <option value="true">{t("team.videoYes")}</option>
+            <option value="false">{t("team.videoNo")}</option>
           </Select>
         </Field>
       </div>
@@ -265,6 +270,7 @@ export function ModelSettings({ model, onChange }: { model: Agent["model"]; onCh
 
 /** Skills: know-how the agent opens when a skill's trigger fits (only the triggers are in its prompt). */
 function SkillPicker({ value, onChange }: { value: string[]; onChange: (v: string[]) => void }) {
+  const t = useT();
   const [all, setAll] = useState<{ name: string; description: string; builtin: boolean }[]>([]);
   useEffect(() => {
     api.skills().then(setAll).catch(() => {});
@@ -272,7 +278,7 @@ function SkillPicker({ value, onChange }: { value: string[]; onChange: (v: strin
   if (!all.length) return null;
   return (
     <section>
-      <div className="mb-2 text-xs font-medium uppercase tracking-wider text-ink-3">Skills</div>
+      <div className="mb-2 text-xs font-medium uppercase tracking-wider text-ink-3">{t("team.skills")}</div>
       <div className="divide-y divide-line rounded-lg border border-line">
         {all.map((s) => (
           <label key={s.name} className="flex cursor-pointer items-start gap-2.5 px-3 py-2 text-sm">
@@ -284,18 +290,19 @@ function SkillPicker({ value, onChange }: { value: string[]; onChange: (v: strin
             />
             <span className="min-w-0">
               <span className="font-medium">{s.name}</span>
-              {!s.builtin && <span className="ml-2 text-xs text-ink-3">yours</span>}
+              {!s.builtin && <span className="ml-2 text-xs text-ink-3">{t("team.skillYours")}</span>}
               <span className="block text-xs text-ink-3">{s.description}</span>
             </span>
           </label>
         ))}
       </div>
-      <div className="mt-1.5 text-xs text-ink-3">Only each skill&apos;s first line is in the agent&apos;s prompt; it opens the rest when the work calls for it. Zeus can write new ones.</div>
+      <div className="mt-1.5 text-xs text-ink-3">{t("team.skillHint")}</div>
     </section>
   );
 }
 
 function ToolsTab({ draft, set, orgId }: { draft: Agent; set: SetFn; orgId: string }) {
+  const t = useT();
   const [catalog, setCatalog] = useState<CatalogTool[]>([]);
   const [servers, setServers] = useState<McpServer[]>([]);
   const orgLibraries = useOrg((s) => s.org?.settings.libraries);
@@ -311,23 +318,23 @@ function ToolsTab({ draft, set, orgId }: { draft: Agent; set: SetFn; orgId: stri
   };
   const cats = [...new Set(catalog.map((c) => c.category))];
   const catLabel: Record<string, string> = {
-    communication: "Communication",
-    tasks: "Tasks",
-    memory: "Memory",
-    files: "Files",
-    shell: "Shell",
-    web: "Web",
-    meta: "Self-improvement",
+    communication: t("team.catCommunication"),
+    tasks: t("team.catTasks"),
+    memory: t("team.catMemory"),
+    files: t("team.catFiles"),
+    shell: t("team.catShell"),
+    web: t("team.catWeb"),
+    meta: t("team.catSelfImprovement"),
   };
   return (
     <div className="space-y-5">
       <SkillPicker value={draft.skills ?? []} onChange={(skills) => set("skills", skills)} />
       <section>
-        <div className="mb-2 text-xs font-medium uppercase tracking-wider text-ink-3">Stage libraries</div>
+        <div className="mb-2 text-xs font-medium uppercase tracking-wider text-ink-3">{t("team.stageLibraries")}</div>
         <LibraryPicker
           value={draft.libraries}
           onChange={(libraries) => set("libraries", libraries)}
-          inherit={{ label: "The organization's choice", value: orgLibraries }}
+          inherit={{ label: t("team.orgLibraryChoice"), value: orgLibraries }}
         />
       </section>
       {cats.map((cat) => (
@@ -355,9 +362,9 @@ function ToolsTab({ draft, set, orgId }: { draft: Agent; set: SetFn; orgId: stri
         </section>
       ))}
       <section>
-        <div className="mb-2 text-xs font-medium uppercase tracking-wider text-ink-3">MCP servers</div>
+        <div className="mb-2 text-xs font-medium uppercase tracking-wider text-ink-3">{t("team.mcpServers")}</div>
         {servers.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-line-2 p-4 text-sm text-ink-3">No MCP servers configured. Add them in Settings (global) or the org&apos;s Settings tab.</div>
+          <div className="rounded-lg border border-dashed border-line-2 p-4 text-sm text-ink-3">{t("team.noMcpServers")}</div>
         ) : (
           <div className="divide-y divide-line rounded-lg border border-line">
             {servers.map((s) => {
@@ -366,7 +373,7 @@ function ToolsTab({ draft, set, orgId }: { draft: Agent; set: SetFn; orgId: stri
               return (
                 <ToolRow
                   key={s.id}
-                  name={`${s.name} (all tools)`}
+                  name={t("team.mcpAllTools", { name: s.name })}
                   description={`${s.transport} · ${s.description || s.command || s.url || ""}`}
                   enabled={!!e}
                   approval={e?.approval ?? "auto"}
@@ -380,7 +387,7 @@ function ToolsTab({ draft, set, orgId }: { draft: Agent; set: SetFn; orgId: stri
         )}
       </section>
       <div className="text-xs text-ink-3">
-        <b>Ask</b> pauses the agent until you approve each call in the Inbox. Permissions are enforced by the runtime on every call, not just in the prompt.
+        <b>{t("team.approvalAskLabel")}</b> {t("team.toolsAskNote")}
       </div>
     </div>
   );
@@ -405,21 +412,22 @@ function ToolRow({
   onApproval: (a: "auto" | "ask") => void;
   badge?: React.ReactNode;
 }) {
+  const t = useT();
   return (
     <div className={cx("flex items-center gap-3 px-3 py-2.5", !enabled && "opacity-60")}>
       <input type="checkbox" checked={enabled} onChange={(e) => onToggle(e.target.checked)} className="size-4 accent-[#8b7cff]" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
           <code className="font-mono text-xs font-semibold">{name}</code>
-          {risky && <Badge tone="warn">side effects</Badge>}
+          {risky && <Badge tone="warn">{t("team.sideEffects")}</Badge>}
           {badge}
         </div>
         <div className="truncate text-xs text-ink-3">{description}</div>
       </div>
       {enabled && (
         <Select className="h-7 w-28 text-xs" value={approval === "deny" ? "auto" : approval} onChange={(e) => onApproval(e.target.value as "auto" | "ask")}>
-          <option value="auto">Auto</option>
-          <option value="ask">Ask me</option>
+          <option value="auto">{t("team.approvalAuto")}</option>
+          <option value="ask">{t("team.approvalAskMe")}</option>
         </Select>
       )}
     </div>
@@ -427,35 +435,39 @@ function ToolRow({
 }
 
 function WorkspaceTab({ draft, set, agentId, onDeleted }: { draft: Agent; set: SetFn; agentId: string; onDeleted: () => void }) {
+  const t = useT();
   const org = useOrg((s) => s.org);
   const [confirm, setConfirm] = useState<string | null>(null);
   return (
     <div className="grid gap-5">
-      <Field label="Worktree" hint={`Relative to the org workspace${org?.workspace ? ` (${org.workspace})` : ""}`}>
-        <Input value={draft.worktree ?? ""} onChange={(e) => set("worktree", e.target.value || null)} placeholder="(the org workspace root)" />
+      <Field
+        label={t("team.worktree")}
+        hint={t("team.worktreeHint", { path: org?.workspace ? ` (${org.workspace})` : "" })}
+      >
+        <Input value={draft.worktree ?? ""} onChange={(e) => set("worktree", e.target.value || null)} placeholder={t("team.worktreePlaceholder")} />
       </Field>
       <div className="grid grid-cols-2 gap-3">
-        <Field label="Max steps per turn" hint="Model calls before wrapping up">
+        <Field label={t("team.maxStepsPerTurn")} hint={t("team.maxStepsPerTurnHint")}>
           <Input type="number" value={draft.limits.max_steps_per_turn ?? ""} placeholder="600" onChange={(e) => set("limits", { ...draft.limits, max_steps_per_turn: e.target.value ? Number(e.target.value) : undefined })} />
         </Field>
-        <Field label="Max turns per hour" hint="Circuit breaker">
+        <Field label={t("team.maxTurnsPerHour")} hint={t("team.maxTurnsPerHourHint")}>
           <Input type="number" value={draft.limits.max_turns_per_hour ?? ""} placeholder="120" onChange={(e) => set("limits", { ...draft.limits, max_turns_per_hour: e.target.value ? Number(e.target.value) : undefined })} />
         </Field>
       </div>
       <section className="rounded-lg border border-line p-4">
-        <div className="mb-2 text-sm font-semibold">Working context</div>
+        <div className="mb-2 text-sm font-semibold">{t("team.workingContext")}</div>
         <ContextControls agentId={agentId} name={draft.name} />
       </section>
       <section className="rounded-lg border border-bad/30 p-4">
-        <div className="text-sm font-semibold text-bad">Danger zone</div>
+        <div className="text-sm font-semibold text-bad">{t("team.dangerZone")}</div>
         <div className="mt-3 flex flex-wrap gap-2">
           <Button variant="danger" size="sm" onClick={() => setConfirm("delete")}>
-            Remove agent
+            {t("team.removeAgent")}
           </Button>
         </div>
         {confirm && (
           <div className="mt-3 flex items-center gap-2 text-sm">
-            <span className="text-ink-2">Remove this agent? Open tasks return to the backlog.</span>
+            <span className="text-ink-2">{t("team.removeAgentConfirm")}</span>
             <Button
               size="sm"
               variant="danger"
@@ -465,10 +477,10 @@ function WorkspaceTab({ draft, set, agentId, onDeleted }: { draft: Agent; set: S
                 setConfirm(null);
               }}
             >
-              Confirm
+              {t("common.confirm")}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setConfirm(null)}>
-              Cancel
+              {t("common.cancel")}
             </Button>
           </div>
         )}
@@ -478,14 +490,15 @@ function WorkspaceTab({ draft, set, agentId, onDeleted }: { draft: Agent; set: S
 }
 
 function LookTab({ draft, set }: { draft: Agent; set: SetFn }) {
+  const t = useT();
   const ready = useOfficeReady(); // the characters come from the office packs
   const av = draft.avatar;
   const current = characterFor(draft);
-  if (!ready) return <div className="text-sm text-ink-3">Loading characters…</div>;
+  if (!ready) return <div className="text-sm text-ink-3">{t("team.loadingCharacters")}</div>;
   return (
     <div className="grid gap-4">
       <div>
-        <div className="mb-2 text-xs font-medium text-ink-2">Character in the office</div>
+        <div className="mb-2 text-xs font-medium text-ink-2">{t("team.characterInOffice")}</div>
         <div className="max-h-80 space-y-3 overflow-y-auto pr-1">
           {characterGroups().map((g) => (
             <div key={g.label}>
@@ -516,10 +529,10 @@ function LookTab({ draft, set }: { draft: Agent; set: SetFn }) {
       <div className="flex items-center gap-4">
         <AgentAvatar agent={draft} size={48} />
         <div className="grid flex-1 grid-cols-2 gap-3">
-          <Field label="Color" hint="Name tag, selection ring, avatar">
+          <Field label={t("team.color")} hint={t("team.colorHint")}>
             <input type="color" className="h-9 w-full cursor-pointer rounded-md border border-line-2 bg-bg" value={av.outfit ?? "#6d5dfc"} onChange={(e) => set("avatar", { ...av, outfit: e.target.value })} />
           </Field>
-          <Field label="Accent">
+          <Field label={t("team.accent")}>
             <input type="color" className="h-9 w-full cursor-pointer rounded-md border border-line-2 bg-bg" value={av.accent ?? "#ffffff"} onChange={(e) => set("avatar", { ...av, accent: e.target.value })} />
           </Field>
         </div>
@@ -533,13 +546,14 @@ function LookTab({ draft, set }: { draft: Agent; set: SetFn }) {
           void import("@/lib/voice").then((v) => v.speak(`Hi, I'm ${draft.name}, ${draft.role}.`, draft.id, av.voice));
         }}
       >
-        ▶ Preview voice
+        {t("team.previewVoice")}
       </Button>
     </div>
   );
 }
 
 function PermissionsTab({ draft, set }: { draft: Agent; set: SetFn }) {
+  const t = useT();
   const org = useOrg((s) => s.org);
   const orgPolicy = { create: true, assign: "anyone", edit: "any", require_review: true, ...(org?.settings.task_policy ?? {}) };
   const own = draft.permissions?.tasks ?? {};
@@ -562,7 +576,9 @@ function PermissionsTab({ draft, set }: { draft: Agent; set: SetFn }) {
             else upd({ [key]: v === "true" ? true : v === "false" ? false : v } as Partial<TaskPolicy>);
           }}
         >
-          <option value="">Org default ({options.find((o) => o.value === String(inherited))?.label ?? String(inherited)})</option>
+          <option value="">
+            {t("team.permissionOrgDefault", { value: options.find((o) => o.value === String(inherited))?.label ?? String(inherited) })}
+          </option>
           {options.map((o) => (
             <option key={o.value} value={o.value}>
               {o.label}
@@ -574,32 +590,31 @@ function PermissionsTab({ draft, set }: { draft: Agent; set: SetFn }) {
   };
   return (
     <div className="grid gap-4">
-      <p className="text-xs text-ink-3">
-        Enforced by the runtime on every task action. When a rule blocks an action, the agent is told why and what to do instead.
-      </p>
-      {row("create", "Create tasks", "Can this agent put new work on the board?", [
-        { value: "true", label: "Allowed" },
-        { value: "false", label: "Not allowed" },
+      <p className="text-xs text-ink-3">{t("team.permissionsIntro")}</p>
+      {row("create", t("team.permissionCreateTasks"), t("team.permissionCreateTasksHint"), [
+        { value: "true", label: t("team.optionAllowed") },
+        { value: "false", label: t("team.optionNotAllowed") },
       ])}
-      {row("assign", "Assign work to", "Whom this agent may delegate tasks to", [
-        { value: "anyone", label: "Anyone" },
-        { value: "reports", label: "Itself and people it manages" },
-        { value: "self", label: "Only itself" },
+      {row("assign", t("team.permissionAssignWorkTo"), t("team.permissionAssignWorkToHint"), [
+        { value: "anyone", label: t("team.optionAnyone") },
+        { value: "reports", label: t("team.optionItselfAndReports") },
+        { value: "self", label: t("team.optionOnlyItself") },
       ])}
-      {row("edit", "Change tasks", "Which tasks this agent may update", [
-        { value: "any", label: "Any task" },
-        { value: "involved", label: "Tasks it's involved in" },
-        { value: "assigned", label: "Only tasks assigned to it" },
+      {row("edit", t("team.permissionChangeTasks"), t("team.permissionChangeTasksHint"), [
+        { value: "any", label: t("team.optionAnyTask") },
+        { value: "involved", label: t("team.optionInvolvedTasks") },
+        { value: "assigned", label: t("team.optionOnlyAssigned") },
       ])}
-      {row("require_review", "Review before done", "Assignees must send reviewed work to review instead of closing it", [
-        { value: "true", label: "Required" },
-        { value: "false", label: "Not required" },
+      {row("require_review", t("team.permissionReviewBeforeDone"), t("team.permissionReviewBeforeDoneHint"), [
+        { value: "true", label: t("team.optionRequired") },
+        { value: "false", label: t("team.optionNotRequired") },
       ])}
     </div>
   );
 }
 /** The agent's voice: one of the speech server's voices, or one of this browser's. */
 function VoicePicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const t = useT();
   const [info, setInfo] = useState<{ voices: string[]; default: string; error?: string } | null>(null);
   const [local, setLocal] = useState<{ name: string; lang: string }[]>([]);
   useEffect(() => {
@@ -610,25 +625,28 @@ function VoicePicker({ value, onChange }: { value: string; onChange: (v: string)
   const known = [...listed, ...local.map((v) => `browser:${v.name}`)];
   if (!listed.length && !local.length) {
     return (
-      <Field label="Voice" hint="Voice id passed to the speech model (leave empty for the default)">
-        <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder="e.g. alba" />
+      <Field label={t("team.voice")} hint={t("team.voiceHint")}>
+        <Input value={value} onChange={(e) => onChange(e.target.value)} placeholder={t("team.voicePlaceholder")} />
       </Field>
     );
   }
   return (
     <Field
-      label="Voice"
-      hint={
-        listed.length
-          ? "Used whenever this agent speaks: chat replies, live talk and lessons"
-          : "No speech server, so agents speak with this browser's voices (they differ between devices)"
-      }
+      label={t("team.voice")}
+      hint={listed.length ? t("team.voiceUsedWhen") : t("team.voiceNoServer")}
     >
       <Select value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value="">Default voice{info?.default ? ` (${info.default})` : ""}</option>
-        {value && !known.includes(value) && <option value={value}>{value.replace(/^browser:/, "")} (not available here)</option>}
+        <option value="">
+          {t("team.defaultVoice")}
+          {info?.default ? ` (${info.default})` : ""}
+        </option>
+        {value && !known.includes(value) && (
+          <option value={value}>
+            {value.replace(/^browser:/, "")} ({t("team.notAvailableHere")})
+          </option>
+        )}
         {listed.length > 0 && (
-          <optgroup label="Speech server">
+          <optgroup label={t("team.speechServer")}>
             {listed.map((v) => (
               <option key={v} value={v}>
                 {v}
@@ -637,7 +655,7 @@ function VoicePicker({ value, onChange }: { value: string; onChange: (v: string)
           </optgroup>
         )}
         {local.length > 0 && (
-          <optgroup label="This browser">
+          <optgroup label={t("team.thisBrowser")}>
             {local.map((v) => (
               <option key={v.name} value={`browser:${v.name}`}>
                 {v.name} ({v.lang})

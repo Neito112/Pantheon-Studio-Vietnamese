@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useT } from "@/i18n";
 import { apiUrl, inDesktopApp } from "@/lib/engine";
 
 /**
@@ -7,6 +8,7 @@ import { apiUrl, inDesktopApp } from "@/lib/engine";
  * for it instead of letting every panel fail its first request.
  */
 export function EngineGate({ children }: { children: ReactNode }) {
+  const t = useT();
   const [up, setUp] = useState(false);
   const [waited, setWaited] = useState(0);
 
@@ -37,12 +39,10 @@ export function EngineGate({ children }: { children: ReactNode }) {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-4 bg-bg text-ink">
       <div className="h-10 w-10 animate-spin rounded-full border-2 border-line border-t-accent" />
-      <div className="text-sm text-ink-2">Starting Pantheon…</div>
+      <div className="text-sm text-ink-2">{t("shell.engine.starting")}</div>
       {waited > 20 && (
         <div className="max-w-sm text-center text-xs text-ink-3">
-          {inDesktopApp()
-            ? "This is taking longer than usual. The engine's log is in the app's data folder, under logs/engine.log."
-            : "Waiting for the engine on port 8720. Start it with: cd engine && uv run python -m app.serve"}
+          {inDesktopApp() ? t("shell.engine.waitDesktop") : t("shell.engine.waitCli")}
         </div>
       )}
     </div>

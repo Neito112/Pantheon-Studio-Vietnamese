@@ -1,5 +1,6 @@
 /** How things look in the Studio: an agent's colour, and what each state looks like. */
 import type { Agent, RuntimeStatus } from "@/lib/types";
+import { translate } from "@/i18n";
 
 /** An agent's hue, the same everywhere it appears: from its chosen accent, else its name. */
 export function agentHue(agent: Pick<Agent, "name" | "avatar"> | undefined): number {
@@ -29,24 +30,24 @@ export interface StateLook {
   loud: boolean;
 }
 
-export function stateLook(status: RuntimeStatus | undefined, agentStatus?: Agent["status"]): StateLook {
-  if (agentStatus === "paused") return { label: "Paused", color: "var(--st-ink-3)", motion: "none", loud: false };
-  if (agentStatus === "standby") return { label: "Standby", color: "var(--st-ink-3)", motion: "none", loud: false };
+export function stateLook(status: RuntimeStatus | undefined, agentStatus?: Agent["status"], t = translate): StateLook {
+  if (agentStatus === "paused") return { label: t("shell.state.paused"), color: "var(--st-ink-3)", motion: "none", loud: false };
+  if (agentStatus === "standby") return { label: t("shell.state.standby"), color: "var(--st-ink-3)", motion: "none", loud: false };
   switch (status) {
     case "working":
-      return { label: "Working", color: "var(--st-violet)", motion: "breathe", loud: false };
+      return { label: t("shell.state.working"), color: "var(--st-violet)", motion: "breathe", loud: false };
     case "awaiting_approval":
-      return { label: "Needs you", color: "var(--st-amber)", motion: "glow", loud: true };
+      return { label: t("shell.state.needsYou"), color: "var(--st-amber)", motion: "glow", loud: true };
     case "error":
-      return { label: "Failed", color: "var(--st-red)", motion: "glow", loud: true };
+      return { label: t("shell.state.failed"), color: "var(--st-red)", motion: "glow", loud: true };
     case "retrying":
-      return { label: "Retrying", color: "var(--st-amber)", motion: "none", loud: false };
+      return { label: t("shell.state.retrying"), color: "var(--st-amber)", motion: "none", loud: false };
     case "cooling_down":
-      return { label: "Cooling down", color: "var(--st-cyan)", motion: "none", loud: false };
+      return { label: t("shell.state.coolingDown"), color: "var(--st-cyan)", motion: "none", loud: false };
     case "queued":
-      return { label: "Queued", color: "var(--st-cyan)", motion: "none", loud: false };
+      return { label: t("shell.state.queued"), color: "var(--st-cyan)", motion: "none", loud: false };
     default:
-      return { label: "Idle", color: "var(--st-ink-3)", motion: "none", loud: false };
+      return { label: t("shell.state.idle"), color: "var(--st-ink-3)", motion: "none", loud: false };
   }
 }
 

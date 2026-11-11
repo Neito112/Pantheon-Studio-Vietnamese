@@ -29,6 +29,7 @@ import {
 import "@xyflow/react/dist/style.css";
 import { memo, useEffect, useMemo, useState } from "react";
 import type { Agent, Relationship } from "@/lib/types";
+import { formatDateTime, useLocale, useT } from "@/i18n";
 import { Icon } from "./icons";
 import { agentHue, hsl, initials, stateLook } from "./look";
 import { useView } from "./replay";
@@ -80,10 +81,11 @@ function layout(agents: Agent[], rels: Relationship[]): Record<string, { x: numb
 }
 
 const AgentNode = memo(function AgentNode({ data, selected }: NodeProps<Node<AgentNodeData>>) {
+  const t = useT();
   const { agent } = data;
   const zoom = useStore((s) => s.transform[2]);
   const live = useView((s) => s.live[agent.id]);
-  const look = stateLook(agent.runtimeStatus, agent.status);
+  const look = stateLook(agent.runtimeStatus, agent.status, t);
   const hue = agentHue(agent);
   const tier = zoom < 0.5 ? 0 : zoom < 1.25 ? 1 : 2;
   const thought = (live?.thinking || live?.stream || live?.lastSaid || agent.runtimeDetail || "").trim();
@@ -207,6 +209,8 @@ const nodeTypes = { agent: AgentNode };
 const edgeTypes = { pulse: PulseEdge };
 
 function CanvasInner({ orgId }: { orgId: string }) {
+  const t = useT();
+  const locale = useLocale();
   const agentsById = useView((s) => s.agents);
   const rels = useView((s) => s.relationships);
   const allBeams = useView((s) => s.beams);
@@ -290,7 +294,7 @@ function CanvasInner({ orgId }: { orgId: string }) {
   if (agents.length === 0) {
     return (
       <div className="grid h-full place-items-center text-sm text-[var(--st-ink-3)]">
-        {at === null ? "This organization has no agents yet." : "At this moment the org had no agents yet. Drag the timeline forward."}
+        {at === null ? t("shell.canvas.empty") : t("shell.canvas.replayEmpty")}
       </div>
     );
   }
@@ -328,13 +332,13 @@ function CanvasInner({ orgId }: { orgId: string }) {
           background: "linear-gradient(180deg, rgba(76,201,240,0.05), transparent 30%)",
         }}>
           <div className="st-mono absolute left-1/2 top-3 -translate-x-1/2 rounded-full border border-[rgba(76,201,240,0.4)] bg-[rgba(8,20,30,0.7)] px-3 py-1 text-[11px] tracking-wide text-[var(--st-cyan)]">
-            REPLAY · {new Date(at).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+            {t("shell.canvas.replay")} · {formatDateTime(locale, at)}
           </div>
         </div>
       )}
       <Controls showInteractive={false} position="bottom-right" />
       <div className="pointer-events-none absolute left-4 top-3 z-10 flex items-center gap-2 text-[11px] text-[var(--st-ink-3)]">
-        <Icon name="canvas" size={13} /> Scroll to zoom into an agent · double-click to dive in · drag to arrange
+        <Icon name="canvas" size={13} /> {t("shell.canvas.hint")}
       </div>
       <button
         className="absolute right-4 top-3 z-10 rounded-lg border border-[var(--st-edge)] bg-[var(--st-glass-2)] px-2.5 py-1 text-[11px] text-[var(--st-ink-2)] hover:text-[var(--st-ink)]"
@@ -344,7 +348,7 @@ function CanvasInner({ orgId }: { orgId: string }) {
           setTimeout(() => flow.fitView({ padding: 0.25, duration: 600 }), 30);
         }}
       >
-        Re-arrange
+        {t("shell.canvas.rearrange")}
       </button>
     </ReactFlow>
   );

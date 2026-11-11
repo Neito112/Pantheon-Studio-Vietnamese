@@ -5,15 +5,9 @@ import { ActivityFeed } from "@/components/ActivityFeed";
 import { MetaChat, MetaLayout, SYSTEM_ORG } from "@/components/MetaChat";
 import { HostFolders, useHostStatus } from "@/components/HostStatus";
 import { Badge, Spinner, Tabs } from "@/components/ui";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import { useOrgConnection } from "@/store/org";
-
-const PROMPTS = [
-  "Add a built-in tool that lets agents read RSS feeds.",
-  "Zeus says agents need a CSV export of the task board. Can you build it?",
-  "What can you reach on my computer right now?",
-  "Summarize the reports in my allowed folder into one document.",
-];
 
 function KronosIcon({ size = 30 }: { size?: number }) {
   return (
@@ -33,12 +27,14 @@ function KronosIcon({ size = 30 }: { size?: number }) {
 
 export default function KronosPage() {
   useOrgConnection(SYSTEM_ORG);
+  const t = useT();
   const [kronosId, setKronosId] = useState<string | null>(null);
   const [tab, setTab] = useState<"computer" | "activity">("computer");
   const [side, setSide] = useState(false);
   useEffect(() => {
     api.metaAgent("kronos").then((s) => setKronosId(s.agent.id)).catch(() => {});
   }, []);
+  const prompts = [t("meta.kronos.prompt1"), t("meta.kronos.prompt2"), t("meta.kronos.prompt3"), t("meta.kronos.prompt4")];
   return (
     <MetaLayout
       sideOpen={side}
@@ -49,11 +45,11 @@ export default function KronosPage() {
             agentId={kronosId}
             fallbackName="Kronos"
             icon={<KronosIcon />}
-            subtitle="The engineer. Works on your computer: changes Pantheon's own code when Zeus or you need it, and handles files in folders you allow."
-            intro="Ask Kronos for a new capability or a fix to Pantheon, or for work with files on your computer. Code changes are tested before they're applied."
-            prompts={PROMPTS}
-            placeholder="Ask Kronos to build or fix something…"
-            sideLabel="Computer"
+            subtitle={t("meta.kronos.subtitle")}
+            intro={t("meta.kronos.intro")}
+            prompts={prompts}
+            placeholder={t("meta.kronos.placeholder")}
+            sideLabel={t("meta.kronos.sideLabel")}
             onShowSide={() => setSide(true)}
           />
         ) : (
@@ -67,8 +63,8 @@ export default function KronosPage() {
               value={tab}
               onChange={setTab}
               items={[
-                { value: "computer", label: "Computer" },
-                { value: "activity", label: "What Kronos is doing" },
+                { value: "computer", label: t("meta.kronos.tabComputer") },
+                { value: "activity", label: t("meta.kronos.tabActivity") },
               ]}
             />
           </div>
@@ -80,6 +76,7 @@ export default function KronosPage() {
 }
 
 function Computer() {
+  const t = useT();
   const status = useHostStatus();
   if (!status) return <Spinner />;
   const info = status.info;
@@ -87,7 +84,7 @@ function Computer() {
     <div className="space-y-5 p-4 text-sm">
       {info?.host && (
         <div className="flex items-center gap-2">
-          <Badge tone="ok">this computer</Badge>
+          <Badge tone="ok">{t("meta.kronos.thisComputer")}</Badge>
           <span className="text-xs text-ink-3">{info.host}</span>
         </div>
       )}
@@ -95,16 +92,16 @@ function Computer() {
       {info && (
         <div className="space-y-3">
           <div>
-            <div className="mb-1 text-xs font-medium uppercase tracking-wider text-ink-3">Pantheon code</div>
-            <div className="break-all text-xs text-ink-2">{info.repo ?? "Pantheon is installed, not running from its source, so Kronos can't change its code here."}</div>
-            {info.branch && <div className="mt-0.5 text-xs text-ink-3">changes merge into branch {info.branch}, after the checks pass</div>}
+            <div className="mb-1 text-xs font-medium uppercase tracking-wider text-ink-3">{t("meta.kronos.pantheonCode")}</div>
+            <div className="break-all text-xs text-ink-2">{info.repo ?? t("meta.kronos.notFromSource")}</div>
+            {info.branch && <div className="mt-0.5 text-xs text-ink-3">{t("meta.kronos.changesMergeIntoBranch", { branch: info.branch })}</div>}
           </div>
           <div>
-            <div className="mb-1 text-xs font-medium uppercase tracking-wider text-ink-3">Folders you allowed</div>
+            <div className="mb-1 text-xs font-medium uppercase tracking-wider text-ink-3">{t("meta.kronos.allowedFolders")}</div>
             <HostFolders allowed={info.allowed ?? []} compact />
           </div>
           <div>
-            <div className="mb-1 text-xs font-medium uppercase tracking-wider text-ink-3">Changes in progress</div>
+            <div className="mb-1 text-xs font-medium uppercase tracking-wider text-ink-3">{t("meta.kronos.changesInProgress")}</div>
             {info.openChanges?.length ? (
               <ul className="space-y-1.5">
                 {info.openChanges.map((c) => (
@@ -115,17 +112,15 @@ function Computer() {
                 ))}
               </ul>
             ) : (
-              <div className="text-xs text-ink-3">None.</div>
+              <div className="text-xs text-ink-3">{t("meta.kronos.noChanges")}</div>
             )}
           </div>
         </div>
       )}
 
       <div className="rounded-lg border border-line p-3 text-xs leading-relaxed text-ink-2">
-        <div className="mb-1 font-medium text-ink">How Kronos changes Pantheon</div>
-        Every change is made on its own git branch in a separate worktree, never in your working copy. Applying it runs lint, type checks and the test suites; only a
-        change that passes is merged into your current branch, and then Pantheon rebuilds itself (a minute or two). If your uncommitted work touches the same files,
-        Kronos stops and asks you first. Shell commands outside these checks need your approval.
+        <div className="mb-1 font-medium text-ink">{t("meta.kronos.howTitle")}</div>
+        {t("meta.kronos.howBody")}
       </div>
     </div>
   );

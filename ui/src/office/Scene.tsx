@@ -7,6 +7,7 @@ import { memo, Suspense, useEffect, useLayoutEffect, useMemo, useRef, useState }
 import * as THREE from "three";
 import type { OrbitControls as OrbitControlsImpl } from "three-stdlib";
 import type { Agent, RuntimeStatus, Task, WhiteboardInfo } from "@/lib/types";
+import { useT } from "@/i18n";
 import { liveFor, type Beam, type LiveMeeting, type OrgState } from "@/store/reduce";
 import { applyIntent, assignMeetingRooms, intentFor, newMotion, step, type Motion } from "./brain";
 import { resolveDesign, type OfficeDesign, type ResolvedOffice } from "./design";
@@ -176,7 +177,8 @@ const AgentFigure = memo(function AgentFigure({
   dim: boolean;
   onSelect: () => void;
 }) {
-  const bubble = bubbleFor(live, meeting, agent.id);
+  const t = useT();
+  const bubble = bubbleFor(live, meeting, agent.id, t);
   const accent = agent.avatar.outfit ?? "#6d5dfc";
   return (
     <Person
@@ -231,6 +233,7 @@ function bubbleFor(
   live: ReturnType<typeof liveFor>,
   meeting: LiveMeeting | undefined,
   agentId: string,
+  t: ReturnType<typeof useT>,
 ): { text: string; tone: "warn" | "bad" | "accent" | "plain" | "thought" } | null {
   // Replaying, "now" is the timeline's moment, and what was said in the minute before it
   // stays up (a scrub rarely lands within seconds of a message).
@@ -238,17 +241,17 @@ function bubbleFor(
   const now = at ?? Date.now();
   const sayFor = at === null ? 7000 : 60_000;
   if (meeting && meeting.speakerId === agentId && meeting.lastText) return { text: clip(meeting.lastText, 140), tone: "plain" };
-  if (live.status === "awaiting_approval") return { text: `✋ Needs your approval: ${live.detail}`, tone: "warn" };
+  if (live.status === "awaiting_approval") return { text: t("office.bubble.approval", { detail: live.detail }), tone: "warn" };
   // In a meeting only the speaker talks — keeps bubbles from piling up.
   if (meeting) return null;
-  if (live.status === "error") return { text: "⚠ Stopped — needs attention", tone: "bad" };
+  if (live.status === "error") return { text: t("office.bubble.stopped"), tone: "bad" };
   if (live.lastSaid && now - live.lastSaidAt < sayFor) return { text: clip(live.lastSaid, 140), tone: "plain" };
   if (live.status === "working") {
     if (live.tool) return { text: `🛠 ${live.tool.replace(/^mcp__/, "").replace(/__/g, " · ")}`, tone: "accent" };
     if (live.stream.trim()) return { text: `✎ …${clip(live.stream.trim().slice(-110), 110)}`, tone: "accent" };
     // The model's own reasoning, as it streams: a thought cloud.
     if (live.thinking.trim()) return { text: `…${clip(live.thinking.trim().slice(-120), 120)}`, tone: "thought" };
-    return { text: "thinking…", tone: "thought" };
+    return { text: t("office.bubble.thinking"), tone: "thought" };
   }
   return null;
 }

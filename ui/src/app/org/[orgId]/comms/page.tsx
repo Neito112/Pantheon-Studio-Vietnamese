@@ -6,13 +6,15 @@ import { useEffect, useMemo, useState } from "react";
 import { AgentAvatar } from "@/components/agent";
 import { Composer, MessageList, useAutoSpeak } from "@/components/Chat";
 import { Badge, Button, cx, Empty, ErrorNote, Field, Input, Modal, Select, Toggle } from "@/components/ui";
+import { formatRelative, useLocale, useT } from "@/i18n";
 import { api } from "@/lib/api";
-import { timeAgo } from "@/lib/format";
 import type { Channel } from "@/lib/types";
 import { agentName, useOrg } from "@/store/org";
 import { liveFor } from "@/store/reduce";
 
 export default function CommsPage() {
+  const t = useT();
+  const locale = useLocale();
   const orgId = useOrg((s) => s.orgId)!;
   const channelsMap = useOrg((s) => s.channels);
   const agents = useOrg((s) => s.agents);
@@ -54,7 +56,7 @@ export default function CommsPage() {
           <span className="w-4 text-center text-ink-3">{c.kind === "meeting" ? "◎" : "#"}</span>
         )}
         <span className="truncate">{c.kind === "channel" ? c.name : label(c)}</span>
-        {c.lastMessageAt && <span className="ml-auto shrink-0 text-[10px] text-ink-3">{timeAgo(c.lastMessageAt)}</span>}
+        {c.lastMessageAt && <span className="ml-auto shrink-0 text-[10px] text-ink-3">{formatRelative(locale, c.lastMessageAt)}</span>}
       </button>
     );
   };
@@ -63,32 +65,32 @@ export default function CommsPage() {
     <div className="flex h-full">
       {/* Phones show the list or the conversation, never both. */}
       <aside className={cx("w-full shrink-0 overflow-y-auto border-r border-line bg-panel p-3 md:block md:w-72", selected && "hidden")}>
-        <Group title="Channels" action={<button className="text-ink-3 hover:text-ink cursor-pointer" onClick={() => setCreating(true)}>+</button>}>
+        <Group title={t("org.comms.channels")} action={<button className="text-ink-3 hover:text-ink cursor-pointer" onClick={() => setCreating(true)}>+</button>}>
           {groups.channels.map((c) => (
             <Item key={c.id} c={c} />
           ))}
         </Group>
-        <Group title="Your conversations" action={<button className="text-ink-3 hover:text-ink cursor-pointer" onClick={() => setNewDm(true)}>+</button>}>
+        <Group title={t("org.comms.yourConversations")} action={<button className="text-ink-3 hover:text-ink cursor-pointer" onClick={() => setNewDm(true)}>+</button>}>
           {groups.mine.map((c) => (
             <Item key={c.id} c={c} />
           ))}
-          {groups.mine.length === 0 && <div className="px-2 text-xs text-ink-3">No direct messages yet.</div>}
+          {groups.mine.length === 0 && <div className="px-2 text-xs text-ink-3">{t("org.comms.noDirectMessages")}</div>}
         </Group>
-        <Group title="Between agents" hint="read-only">
+        <Group title={t("org.comms.betweenAgents")} hint={t("common.readOnly")}>
           {groups.agents.map((c) => (
             <Item key={c.id} c={c} />
           ))}
-          {groups.agents.length === 0 && <div className="px-2 text-xs text-ink-3">Agents haven&apos;t messaged each other yet.</div>}
+          {groups.agents.length === 0 && <div className="px-2 text-xs text-ink-3">{t("org.comms.noAgentMessages")}</div>}
         </Group>
         {groups.meetings.length > 0 && (
-          <Group title="Meetings">
+          <Group title={t("org.comms.meetings")}>
             {groups.meetings.map((c) => (
               <Item key={c.id} c={c} />
             ))}
           </Group>
         )}
         {groups.archived.length > 0 && (
-          <Group title="Archived" hint="superseded">
+          <Group title={t("org.comms.archived")} hint={t("org.comms.superseded")}>
             {groups.archived.map((c) => (
               <Item key={c.id} c={c} />
             ))}
@@ -101,7 +103,7 @@ export default function CommsPage() {
         ) : current ? (
           <ChannelView key={current.id} channel={current} orgId={orgId} title={label(current)} onBack={() => setSelected(null)} />
         ) : (
-          <Empty title="Pick a conversation" />
+          <Empty title={t("org.comms.pickConversation")} />
         )}
       </section>
       <NewDmModal open={newDm} onClose={() => setNewDm(false)} onPick={(agentId) => {
@@ -131,14 +133,16 @@ function Group({ title, hint, action, children }: { title: string; hint?: string
 }
 
 function BackButton({ onClick }: { onClick: () => void }) {
+  const t = useT();
   return (
-    <button onClick={onClick} aria-label="Back" className="-ml-2 flex size-9 shrink-0 items-center justify-center rounded-md text-ink-2 hover:bg-panel-2 md:hidden cursor-pointer">
+    <button onClick={onClick} aria-label={t("common.back")} className="-ml-2 flex size-9 shrink-0 items-center justify-center rounded-md text-ink-2 hover:bg-panel-2 md:hidden cursor-pointer">
       ‹
     </button>
   );
 }
 
 function ChannelView({ channel, orgId, title, onBack }: { channel: Channel; orgId: string; title: string; onBack: () => void }) {
+  const t = useT();
   const agents = useOrg((s) => s.agents);
   const messages = useOrg((s) => s.messagesByChannel[channel.id]);
   const loadChannel = useOrg((s) => s.loadChannel);
@@ -160,7 +164,7 @@ function ChannelView({ channel, orgId, title, onBack }: { channel: Channel; orgI
         <div className="min-w-0">
           <div className="truncate font-semibold">{title}</div>
           <div className="truncate text-xs text-ink-3">
-            {channel.topic || `${channel.members.length} members`} {channel.kind === "channel" && channel.notify === "mentions" && "· notifies on @mention"}
+            {channel.topic || t("org.comms.memberCount", { count: channel.members.length })} {channel.kind === "channel" && channel.notify === "mentions" && t("org.comms.notifiesOnMention")}
           </div>
         </div>
         <div className="ml-auto flex items-center gap-3">
@@ -172,11 +176,11 @@ function ChannelView({ channel, orgId, title, onBack }: { channel: Channel; orgI
                 <AgentAvatar key={m} agent={agents[m]} size={22} />
               ))}
           </div>
-          {channel.members.includes("user") && <Toggle checked={speak || liveOn} onChange={setSpeak} label="Speak" />}
+          {channel.members.includes("user") && <Toggle checked={speak || liveOn} onChange={setSpeak} label={t("org.comms.speak")} />}
           {channel.kind === "channel" && (
             <button
-              title="Channel settings: members, name, archive"
-              aria-label="Channel settings"
+              title={t("org.comms.channelSettingsHint")}
+              aria-label={t("org.comms.channelSettings")}
               onClick={() => setSettings(true)}
               className="flex size-8 items-center justify-center rounded-md text-ink-2 hover:bg-panel-2 hover:text-ink cursor-pointer"
             >
@@ -189,7 +193,7 @@ function ChannelView({ channel, orgId, title, onBack }: { channel: Channel; orgI
       <MessageList messages={messages ?? []} agents={agents} />
       {canPost ? (
         <Composer
-          placeholder={dmTarget ? `Message ${agentName(dmTarget)}…` : `Post to ${channel.key} (use @Name to mention)…`}
+          placeholder={dmTarget ? t("org.comms.messagePlaceholder", { name: agentName(dmTarget) }) : t("org.comms.postPlaceholder", { key: channel.key })}
           onSend={(t, files, o) =>
             api
               .send(orgId, dmTarget ? { to: dmTarget, content: t, attachments: files, steer: o?.steer } : { channel: channel.id, content: t, attachments: files })
@@ -203,8 +207,8 @@ function ChannelView({ channel, orgId, title, onBack }: { channel: Channel; orgI
       ) : (
         <div className="border-t border-line px-5 py-3 text-xs text-ink-3">
           {channel.archived
-            ? "This channel is archived. Unarchive it in its settings (⚙) to post again."
-            : "You're observing a conversation between agents."}
+            ? t("org.comms.archivedHint")
+            : t("org.comms.observing")}
         </div>
       )}
     </>
@@ -212,6 +216,7 @@ function ChannelView({ channel, orgId, title, onBack }: { channel: Channel; orgI
 }
 
 function PendingDm({ agentId, orgId, onCreated, onBack }: { agentId: string; orgId: string; onCreated: (id: string) => void; onBack: () => void }) {
+  const t = useT();
   const agent = useOrg((s) => s.agents[agentId]);
   return (
     <>
@@ -219,9 +224,9 @@ function PendingDm({ agentId, orgId, onCreated, onBack }: { agentId: string; org
         <BackButton onClick={onBack} />
         {agent?.name}
       </div>
-      <div className="flex flex-1 items-center justify-center text-sm text-ink-3">Start a conversation with {agent?.name}.</div>
+      <div className="flex flex-1 items-center justify-center text-sm text-ink-3">{t("org.comms.startConversation", { name: agent?.name ?? "" })}</div>
       <Composer
-        placeholder={`Message ${agent?.name}…`}
+        placeholder={t("org.comms.messagePlaceholder", { name: agent?.name ?? "" })}
         attach={{ orgId, agentId }}
         onSend={async (t, files) => {
           const m = await api.send(orgId, { to: agentId, content: t, attachments: files });
@@ -235,9 +240,10 @@ function PendingDm({ agentId, orgId, onCreated, onBack }: { agentId: string; org
 }
 
 function NewDmModal({ open, onClose, onPick }: { open: boolean; onClose: () => void; onPick: (agentId: string) => void }) {
+  const t = useT();
   const agents = useOrg(useShallow((s) => Object.values(s.agents).filter((a) => !a.isSupervisor)));
   return (
-    <Modal open={open} onClose={onClose} title="Message an agent">
+    <Modal open={open} onClose={onClose} title={t("org.comms.messageAnAgent")}>
       <div className="space-y-1">
         {agents.map((a) => (
           <button key={a.id} onClick={() => onPick(a.id)} className="flex w-full items-center gap-3 rounded-md px-2 py-2 text-left hover:bg-panel-2 cursor-pointer">
@@ -254,6 +260,7 @@ function NewDmModal({ open, onClose, onPick }: { open: boolean; onClose: () => v
 }
 
 function NewChannelModal({ open, onClose, orgId, onCreated }: { open: boolean; onClose: () => void; orgId: string; onCreated: (id: string) => void }) {
+  const t = useT();
   const agents = useOrg(useShallow((s) => Object.values(s.agents).filter((a) => !a.isSupervisor)));
   const [name, setName] = useState("");
   const [topic, setTopic] = useState("");
@@ -279,28 +286,28 @@ function NewChannelModal({ open, onClose, orgId, onCreated }: { open: boolean; o
     <Modal
       open={open}
       onClose={onClose}
-      title="New channel"
+      title={t("org.comms.newChannel")}
       footer={
         <Button variant="primary" onClick={submit} loading={busy} disabled={!name.trim()}>
-          Create
+          {t("common.create")}
         </Button>
       }
     >
       <div className="grid gap-4">
-        <Field label="Name">
+        <Field label={t("common.name")}>
           <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="launch" />
         </Field>
-        <Field label="Topic">
+        <Field label={t("org.comms.topic")}>
           <Input value={topic} onChange={(e) => setTopic(e.target.value)} />
         </Field>
-        <Field label="Notifications" hint="Every post wakes every member when set to all">
+        <Field label={t("org.comms.notifications")} hint={t("org.comms.notificationsHint")}>
           <Select value={notify} onChange={(e) => setNotify(e.target.value as "all" | "mentions")}>
-            <option value="all">All posts reach every member</option>
-            <option value="mentions">Only @mentions reach members</option>
+            <option value="all">{t("org.comms.notifyAll")}</option>
+            <option value="mentions">{t("org.comms.notifyMentions")}</option>
           </Select>
         </Field>
         <div>
-          <div className="mb-1.5 text-xs font-medium text-ink-2">Members</div>
+          <div className="mb-1.5 text-xs font-medium text-ink-2">{t("org.comms.members")}</div>
           <div className="flex flex-wrap gap-2">
             {agents.map((a) => (
               <button
@@ -317,13 +324,14 @@ function NewChannelModal({ open, onClose, orgId, onCreated }: { open: boolean; o
           </div>
         </div>
         <ErrorNote error={error} />
-        <Badge>You are always added</Badge>
+        <Badge>{t("org.comms.youAlwaysAdded")}</Badge>
       </div>
     </Modal>
   );
 }
 
 function ChannelSettingsModal({ open, channel, onClose }: { open: boolean; channel: Channel; onClose: () => void }) {
+  const t = useT();
   const agents = useOrg(useShallow((s) => Object.values(s.agents).filter((a) => !a.isSupervisor)));
   const [name, setName] = useState(channel.name);
   const [topic, setTopic] = useState(channel.topic);
@@ -359,7 +367,7 @@ function ChannelSettingsModal({ open, channel, onClose }: { open: boolean; chann
     <Modal
       open={open}
       onClose={onClose}
-      title={`${channel.key} settings`}
+      title={t("org.comms.settingsTitle", { key: channel.key })}
       footer={
         <Button
           variant="primary"
@@ -367,31 +375,31 @@ function ChannelSettingsModal({ open, channel, onClose }: { open: boolean; chann
           disabled={!name.trim()}
           onClick={() => run(() => api.updateChannel(channel.id, { name: name === channel.name ? undefined : name, topic, notify, members }))}
         >
-          Save
+          {t("common.save")}
         </Button>
       }
     >
       <div className="grid gap-4">
-        <Field label="Name" hint={isGeneral ? "#general can't be renamed" : undefined}>
+        <Field label={t("common.name")} hint={isGeneral ? t("org.comms.generalCantRename") : undefined}>
           <Input value={name} disabled={isGeneral} onChange={(e) => setName(e.target.value)} />
         </Field>
-        <Field label="Topic">
+        <Field label={t("org.comms.topic")}>
           <Input value={topic} onChange={(e) => setTopic(e.target.value)} />
         </Field>
-        <Field label="Notifications">
+        <Field label={t("org.comms.notifications")}>
           <Select value={notify} onChange={(e) => setNotify(e.target.value as "all" | "mentions")}>
-            <option value="all">All posts reach every member</option>
-            <option value="mentions">Only @mentions reach members</option>
+            <option value="all">{t("org.comms.notifyAll")}</option>
+            <option value="mentions">{t("org.comms.notifyMentions")}</option>
           </Select>
         </Field>
         <div>
-          <div className="mb-1.5 text-xs font-medium text-ink-2">Members</div>
+          <div className="mb-1.5 text-xs font-medium text-ink-2">{t("org.comms.members")}</div>
           <div className="flex flex-wrap gap-2">
             <button
               onClick={() => toggle("user")}
               className={cx("rounded-full border px-2.5 py-0.5 text-xs cursor-pointer", members.includes("user") ? "border-accent bg-accent/15" : "border-line-2")}
             >
-              You
+              {t("common.you")}
             </button>
             {agents.map((a) => (
               <button
@@ -411,24 +419,24 @@ function ChannelSettingsModal({ open, channel, onClose }: { open: boolean; chann
         {!isGeneral && (
           <div className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
             <Button size="sm" disabled={busy} onClick={() => run(() => api.updateChannel(channel.id, { archived: !channel.archived }))}>
-              {channel.archived ? "Unarchive" : "Archive"}
+              {channel.archived ? t("org.comms.unarchive") : t("org.comms.archive")}
             </Button>
             {confirmDelete ? (
               <>
                 <Button size="sm" variant="danger" disabled={busy} onClick={() => run(() => api.deleteChannel(channel.id))}>
-                  Delete {channel.key} and its messages
+                  {t("org.comms.deleteChannelConfirm", { key: channel.key })}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(false)}>
-                  Cancel
+                  {t("common.cancel")}
                 </Button>
               </>
             ) : (
               <Button size="sm" variant="ghost" disabled={busy} onClick={() => setConfirmDelete(true)}>
-                Delete…
+                {t("org.comms.deleteEllipsis")}
               </Button>
             )}
             <span className="w-full text-xs text-ink-3">
-              Archiving keeps the history, marks it superseded and frees the name for a new channel. Deleting removes it for good.
+              {t("org.comms.archiveDeleteHint")}
             </span>
           </div>
         )}

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Markdown } from "@/components/Markdown";
 import { Button, cx } from "@/components/ui";
+import { useT } from "@/i18n";
 import { api, ApiError } from "@/lib/api";
 import type { MarkdownData, StageDoc } from "@/lib/types";
 import { useOrg } from "@/store/org";
@@ -13,6 +14,7 @@ const MODE_KEY = "stage.md.mode";
 /** A Markdown document shared with agents: write on the left, read on the right. What an
  * agent changes arrives live; if you were typing at the time, you choose whose text stays. */
 export default function MarkdownDoc({ docId, onView }: { docId: string; onView?: (text: string) => void }) {
+  const t = useT();
   const [text, setText] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [state, setState] = useState<"saved" | "saving" | "unsaved">("saved");
@@ -79,7 +81,7 @@ export default function MarkdownDoc({ docId, onView }: { docId: string; onView?:
             const doc = (JSON.parse(e.message) as { doc: StageDoc }).doc;
             setTheirs({ text: (doc.data as MarkdownData).text ?? "", version: doc.version, by: doc.updatedBy });
           } catch {
-            setError("Someone changed this document meanwhile; reload it to see their changes.");
+            setError(t("stage.md.conflictError"));
           }
           setState("unsaved");
         } else {
@@ -88,7 +90,7 @@ export default function MarkdownDoc({ docId, onView }: { docId: string; onView?:
         }
       }
     },
-    [docId],
+    [docId, t],
   );
   useEffect(() => {
     again.current = () => save();
@@ -139,7 +141,7 @@ export default function MarkdownDoc({ docId, onView }: { docId: string; onView?:
     const before = el.value.slice(0, el.selectionStart);
     const line = before.split("\n").length;
     const heading = [...before.matchAll(/^#{1,6}\s+(.+)$/gm)].pop()?.[1];
-    onView(`editing line ${line}${heading ? `, in the section "${heading.trim()}"` : ""}`);
+    onView(t("stage.md.editingLine", { line }) + (heading ? t("stage.md.inSection", { heading: heading.trim() }) : ""));
   };
 
   /** Wrap the selection (or insert at the cursor) and keep it selected. */
@@ -244,7 +246,7 @@ export default function MarkdownDoc({ docId, onView }: { docId: string; onView?:
   };
 
   if (error && text === null) return <div className="p-6 text-sm text-bad">{error}</div>;
-  if (text === null) return <div className="p-6 text-sm text-ink-3">Loading document…</div>;
+  if (text === null) return <div className="p-6 text-sm text-ink-3">{t("stage.md.loadingDocument")}</div>;
 
   const shown: Mode = narrow && mode === "split" ? "edit" : mode;
   const words = text.trim() ? text.trim().split(/\s+/).length : 0;
@@ -254,29 +256,30 @@ export default function MarkdownDoc({ docId, onView }: { docId: string; onView?:
       <div className="no-scrollbar flex items-center gap-0.5 overflow-x-auto whitespace-nowrap border-b border-line bg-panel px-2 py-1">
         {shown !== "preview" && (
           <>
-            <button className={cx(tool, "font-bold")} title="Bold (Ctrl+B)" onClick={() => wrap("**")}>B</button>
-            <button className={cx(tool, "italic")} title="Italic (Ctrl+I)" onClick={() => wrap("*")}>I</button>
-            <button className={cx(tool, "line-through")} title="Strikethrough" onClick={() => wrap("~~")}>S</button>
+            <button className={cx(tool, "font-bold")} title={t("stage.md.bold")} onClick={() => wrap("**")}>B</button>
+            <button className={cx(tool, "italic")} title={t("stage.md.italic")} onClick={() => wrap("*")}>I</button>
+            <button className={cx(tool, "line-through")} title={t("stage.md.strikethrough")} onClick={() => wrap("~~")}>S</button>
             <span className="mx-1 h-4 w-px bg-line-2" />
-            <button className={tool} title="Heading 1" onClick={() => prefix("# ")}>H1</button>
-            <button className={tool} title="Heading 2" onClick={() => prefix("## ")}>H2</button>
-            <button className={tool} title="Heading 3" onClick={() => prefix("### ")}>H3</button>
+            <button className={tool} title={t("stage.md.heading1")} onClick={() => prefix("# ")}>H1</button>
+            <button className={tool} title={t("stage.md.heading2")} onClick={() => prefix("## ")}>H2</button>
+            <button className={tool} title={t("stage.md.heading3")} onClick={() => prefix("### ")}>H3</button>
             <span className="mx-1 h-4 w-px bg-line-2" />
-            <button className={tool} title="Bulleted list" onClick={() => prefix("- ")}>• List</button>
-            <button className={tool} title="Numbered list" onClick={() => prefix((i) => `${i + 1}. `)}>1. List</button>
-            <button className={tool} title="Checklist" onClick={() => prefix("- [ ] ")}>☐ Tasks</button>
-            <button className={tool} title="Quote" onClick={() => prefix("> ")}>❝</button>
+            <button className={tool} title={t("stage.md.bulletedList")} onClick={() => prefix("- ")}>• {t("stage.md.listLabel")}</button>
+            <button className={tool} title={t("stage.md.numberedList")} onClick={() => prefix((i) => `${i + 1}. `)}>1. {t("stage.md.listLabel")}</button>
+            <button className={tool} title={t("stage.md.checklist")} onClick={() => prefix("- [ ] ")}>☐ {t("stage.md.todoLabel")}</button>
+            <button className={tool} title={t("stage.md.quote")} onClick={() => prefix("> ")}>❝</button>
             <span className="mx-1 h-4 w-px bg-line-2" />
-            <button className={cx(tool, "font-mono")} title="Code" onClick={() => wrap("`", "`", "code")}>{"<>"}</button>
-            <button className={tool} title="Code block" onClick={() => insert("```\n\n```\n")}>{"{ }"}</button>
-            <button className={tool} title="Link (Ctrl+K)" onClick={() => wrap("[", "](https://)", "link")}>🔗</button>
-            <button className={tool} title="Table" onClick={() => insert("| Column | Column |\n| --- | --- |\n| | |\n")}>▦</button>
-            <button className={tool} title="Divider" onClick={() => insert("---\n")}>―</button>
+            <button className={cx(tool, "font-mono")} title={t("stage.md.code")} onClick={() => wrap("`", "`", "code")}>{"<>"}</button>
+            <button className={tool} title={t("stage.md.codeBlock")} onClick={() => insert("```\n\n```\n")}>{"{ }"}</button>
+            <button className={tool} title={t("stage.md.link")} onClick={() => wrap("[", "](https://)", "link")}>🔗</button>
+            <button className={tool} title={t("stage.md.table")} onClick={() => insert("| Column | Column |\n| --- | --- |\n| | |\n")}>▦</button>
+            <button className={tool} title={t("stage.md.divider")} onClick={() => insert("---\n")}>―</button>
           </>
         )}
         <div className="ml-auto flex shrink-0 items-center gap-2 pl-2">
           <span className={cx("text-[11px]", state === "saved" ? "text-ink-3" : "text-warn")}>
-            {state === "saving" ? "Saving…" : state === "unsaved" ? "Unsaved" : "Saved"} · {words} words
+            {state === "saving" ? t("stage.md.saving") : state === "unsaved" ? t("stage.md.unsaved") : t("stage.md.saved")} ·{" "}
+            {t("stage.md.wordCount", { count: words })}
           </span>
           <div className="flex rounded-md border border-line p-0.5">
             {(narrow ? (["edit", "preview"] as Mode[]) : (["edit", "split", "preview"] as Mode[])).map((m) => (
@@ -285,7 +288,7 @@ export default function MarkdownDoc({ docId, onView }: { docId: string; onView?:
                 onClick={() => choose(m)}
                 className={cx("rounded px-2 py-0.5 text-[11.5px] capitalize cursor-pointer", shown === m ? "bg-panel-2 text-ink" : "text-ink-3 hover:text-ink-2")}
               >
-                {m === "preview" ? "Read" : m}
+                {m === "preview" ? t("stage.md.modePreview") : m === "split" ? t("stage.md.modeSplit") : t("stage.md.modeEdit")}
               </button>
             ))}
           </div>
@@ -293,12 +296,12 @@ export default function MarkdownDoc({ docId, onView }: { docId: string; onView?:
       </div>
       {theirs && (
         <div className="flex flex-wrap items-center gap-2 border-b border-line bg-warn/10 px-3 py-1.5 text-xs">
-          <span className="text-warn">{theirs.by} changed this document while you were typing.</span>
+          <span className="text-warn">{t("stage.md.changedWhileTyping", { by: theirs.by })}</span>
           <Button size="sm" variant="ghost" onClick={takeTheirs}>
-            Take theirs
+            {t("stage.md.takeTheirs")}
           </Button>
           <Button size="sm" variant="ghost" onClick={keepMine}>
-            Keep mine
+            {t("stage.md.keepMine")}
           </Button>
         </div>
       )}
@@ -314,7 +317,7 @@ export default function MarkdownDoc({ docId, onView }: { docId: string; onView?:
             onKeyUp={where}
             onClick={where}
             onBlur={() => void save()}
-            placeholder={"# Title\n\nWrite in Markdown. Your agents can read and edit this too."}
+            placeholder={t("stage.md.placeholder")}
             className={cx(
               "min-h-0 flex-1 resize-none bg-bg px-5 py-4 font-mono text-[13px] leading-relaxed text-ink outline-none",
               shown === "split" && "border-r border-line",
@@ -323,7 +326,7 @@ export default function MarkdownDoc({ docId, onView }: { docId: string; onView?:
         )}
         {shown !== "edit" && (
           <div className="doc-panel min-h-0 flex-1 overflow-y-auto px-6 py-5">
-            {text.trim() ? <Markdown className="prose-doc">{text}</Markdown> : <div className="text-sm text-ink-3">Nothing written yet.</div>}
+            {text.trim() ? <Markdown className="prose-doc">{text}</Markdown> : <div className="text-sm text-ink-3">{t("stage.md.nothingWritten")}</div>}
           </div>
         )}
       </div>

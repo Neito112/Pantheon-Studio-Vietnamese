@@ -22,9 +22,16 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type RefOb
 import { AgentAvatar, StatusDot } from "@/components/agent";
 import { AgentEditor } from "@/components/team/AgentEditor";
 import { Button, ErrorNote, Field, Input, Modal, Select } from "@/components/ui";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import type { Agent, Relationship } from "@/lib/types";
 import { useOrg } from "@/store/org";
+
+const REL_KINDS = ["manages", "peer", "advises"] as const;
+
+/** The translated label of a relationship kind, used on edges and in the legend. */
+const relKindLabel = (t: (key: string) => string, kind: Relationship["kind"]): string =>
+  kind === "manages" ? t("team.relKindManages") : kind === "peer" ? t("team.relKindPeer") : kind === "advises" ? t("team.relKindAdvises") : "";
 
 const REL_STYLE: Record<Relationship["kind"], { color: string; dash?: string; label: string }> = {
   manages: { color: "#8b7cff", label: "manages" },
@@ -44,6 +51,7 @@ export default function TeamPage() {
 type AgentNodeData = { agent: Agent; selected: boolean };
 
 function AgentNode({ data }: NodeProps<Node<AgentNodeData>>) {
+  const t = useT();
   const live = useOrg((s) => s.live[data.agent.id]?.status ?? data.agent.runtimeStatus);
   return (
     <div
@@ -57,7 +65,7 @@ function AgentNode({ data }: NodeProps<Node<AgentNodeData>>) {
             <span className="truncate">{data.agent.name}</span>
             <StatusDot status={live} />
           </div>
-          <div className="truncate text-xs text-ink-3">{data.agent.role || "No role"}</div>
+          <div className="truncate text-xs text-ink-3">{data.agent.role || t("team.noRole")}</div>
         </div>
       </div>
       {data.agent.team && <div className="mt-1.5 truncate text-[10px] uppercase tracking-wider text-ink-3">{data.agent.team}</div>}
@@ -94,6 +102,7 @@ function autoLayout(agents: Agent[], rels: Relationship[]): Record<string, { x: 
 function Team() {
   const params = useSearchParams();
   const router = useRouter();
+  const t = useT();
   const orgId = useOrg((s) => s.orgId)!;
   const org = useOrg((s) => s.org);
   const agentsMap = useOrg((s) => s.agents);
@@ -142,7 +151,7 @@ function Team() {
       id: r.id,
       source: r.fromId,
       target: r.toId,
-      label: r.kind === "custom" ? r.label : r.kind === "manages" ? undefined : st.label,
+      label: r.kind === "custom" ? r.label : r.kind === "manages" ? undefined : relKindLabel(t, r.kind),
       style: { stroke: st.color, strokeWidth: 1.8, strokeDasharray: st.dash },
       markerEnd: r.kind === "manages" || r.kind === "advises" ? { type: MarkerType.ArrowClosed, color: st.color } : undefined,
       labelStyle: { fill: "#a4aab8", fontSize: 11 },
@@ -186,20 +195,20 @@ function Team() {
         </ReactFlow>
         <div className="absolute left-4 top-4 flex gap-2">
           <Button variant="primary" onClick={() => setHiring(true)}>
-            + Hire agent
+            {t("team.hireAgent")}
           </Button>
         </div>
         {/* The key sits in a corner, one line; the hint only when the pane has room for it. */}
         <div className="absolute bottom-3 right-3 hidden items-center gap-3 whitespace-nowrap rounded-lg border border-line bg-surface/90 px-3 py-1.5 text-xs text-ink-2 backdrop-blur @sm:flex">
-          {(["manages", "peer", "advises"] as const).map((k) => (
+          {REL_KINDS.map((k) => (
             <span key={k} className="flex items-center gap-1.5">
               <svg width="26" height="6">
                 <line x1="0" y1="3" x2="26" y2="3" stroke={REL_STYLE[k].color} strokeWidth="2" strokeDasharray={REL_STYLE[k].dash} />
               </svg>
-              {k}
+              {relKindLabel(t, k)}
             </span>
           ))}
-          <span className="hidden text-ink-3 @4xl:inline">Drag from a card&apos;s bottom handle to another card to relate them</span>
+          <span className="hidden text-ink-3 @4xl:inline">{t("team.dragToRelate")}</span>
         </div>
       </div>
       {selected && agentsMap[selected] && (
@@ -219,20 +228,22 @@ function Team() {
         <Modal
           open
           onClose={() => setEdgeMenu(null)}
-          title="Relationship"
+          title={t("team.relationshipTitle")}
           footer={
             <>
               <Button variant="ghost" onClick={() => setEdgeMenu(null)}>
-                Close
+                {t("common.close")}
               </Button>
               <Button variant="danger" onClick={() => api.removeRelationship(orgId, edgeMenu.id).then(() => setEdgeMenu(null))}>
-                Remove
+                {t("common.remove")}
               </Button>
             </>
           }
         >
           <div className="text-sm">
-            <b>{agentsMap[edgeMenu.fromId]?.name}</b> {edgeMenu.kind === "custom" ? edgeMenu.label : edgeMenu.kind} <b>{agentsMap[edgeMenu.toId]?.name}</b>
+            <b>{agentsMap[edgeMenu.fromId]?.name}</b>{" "}
+            {edgeMenu.kind === "custom" ? edgeMenu.label : relKindLabel(t, edgeMenu.kind)}{" "}
+            <b>{agentsMap[edgeMenu.toId]?.name}</b>
           </div>
         </Modal>
       )}
@@ -242,6 +253,7 @@ function Team() {
 
 function RelationshipModal({ orgId, conn, onClose }: { orgId: string; conn: Connection; onClose: () => void }) {
   const agents = useOrg((s) => s.agents);
+  const t = useT();
   const [kind, setKind] = useState<Relationship["kind"]>("manages");
   const [label, setLabel] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -254,22 +266,22 @@ function RelationshipModal({ orgId, conn, onClose }: { orgId: string; conn: Conn
     }
   };
   return (
-    <Modal open onClose={onClose} title="Relate agents" footer={<Button variant="primary" onClick={submit}>Save</Button>}>
+    <Modal open onClose={onClose} title={t("team.relateAgentsTitle")} footer={<Button variant="primary" onClick={submit}>{t("common.save")}</Button>}>
       <div className="grid gap-4">
         <div className="text-sm">
           <b>{agents[conn.source!]?.name}</b> → <b>{agents[conn.target!]?.name}</b>
         </div>
-        <Field label="Relationship">
+        <Field label={t("team.relationship")}>
           <Select value={kind} onChange={(e) => setKind(e.target.value as Relationship["kind"])}>
-            <option value="manages">manages (delegates to, reviews)</option>
-            <option value="peer">peer (collaborates with)</option>
-            <option value="advises">advises</option>
-            <option value="custom">custom…</option>
+            <option value="manages">{t("team.relationshipManages")}</option>
+            <option value="peer">{t("team.relationshipPeer")}</option>
+            <option value="advises">{t("team.relationshipAdvises")}</option>
+            <option value="custom">{t("team.relationshipCustom")}</option>
           </Select>
         </Field>
         {kind === "custom" && (
-          <Field label="Label">
-            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. mentors, audits" />
+          <Field label={t("team.label")}>
+            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder={t("team.labelPlaceholder")} />
           </Field>
         )}
         <ErrorNote error={error} />
@@ -279,6 +291,7 @@ function RelationshipModal({ orgId, conn, onClose }: { orgId: string; conn: Conn
 }
 
 function HireModal({ orgId, onClose, onHired }: { orgId: string; onClose: () => void; onHired: (id: string) => void }) {
+  const t = useT();
   const agents = useOrg(useShallow((s) => Object.values(s.agents).filter((a) => !a.isSupervisor)));
   const [form, setForm] = useState({ name: "", role: "", team: "", manager: "", preset: "worker", persona: "" });
   const [error, setError] = useState<string | null>(null);
@@ -307,27 +320,27 @@ function HireModal({ orgId, onClose, onHired }: { orgId: string; onClose: () => 
     <Modal
       open
       onClose={onClose}
-      title="Hire an agent"
+      title={t("team.hireTitle")}
       footer={
         <Button variant="primary" onClick={submit} loading={busy} disabled={!form.name.trim()}>
-          Hire
+          {t("team.hire")}
         </Button>
       }
     >
       <div className="grid gap-4">
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Name">
-            <Input autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Nova" />
+          <Field label={t("team.agentName")}>
+            <Input autoFocus value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder={t("team.namePlaceholder")} />
           </Field>
-          <Field label="Role">
-            <Input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} placeholder="Data analyst" />
+          <Field label={t("team.agentRole")}>
+            <Input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} placeholder={t("team.rolePlaceholder")} />
           </Field>
-          <Field label="Team">
-            <Input value={form.team} onChange={(e) => setForm({ ...form, team: e.target.value })} placeholder="Analytics" />
+          <Field label={t("team.agentTeam")}>
+            <Input value={form.team} onChange={(e) => setForm({ ...form, team: e.target.value })} placeholder={t("team.teamPlaceholder")} />
           </Field>
-          <Field label="Reports to">
+          <Field label={t("team.reportsTo")}>
             <Select value={form.manager} onChange={(e) => setForm({ ...form, manager: e.target.value })}>
-              <option value="">Nobody</option>
+              <option value="">{t("team.nobody")}</option>
               {agents.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
@@ -336,18 +349,18 @@ function HireModal({ orgId, onClose, onHired }: { orgId: string; onClose: () => 
             </Select>
           </Field>
         </div>
-        <Field label="Starting toolset" hint="Fully editable afterwards">
+        <Field label={t("team.startingToolset")} hint={t("team.startingToolsetHint")}>
           <Select value={form.preset} onChange={(e) => setForm({ ...form, preset: e.target.value })}>
-            <option value="worker">Worker — collaboration + files, shell (approval), web</option>
-            <option value="collaborator">Collaborator — messaging, tasks, memory only</option>
+            <option value="worker">{t("team.presetWorker")}</option>
+            <option value="collaborator">{t("team.presetCollaborator")}</option>
           </Select>
         </Field>
-        <Field label="Persona" hint="Their system prompt — you can refine it later">
+        <Field label={t("team.personaLabel")} hint={t("team.personaHint")}>
           <textarea
             className="h-32 w-full rounded-md border border-line-2 bg-bg px-3 py-2 text-sm"
             value={form.persona}
             onChange={(e) => setForm({ ...form, persona: e.target.value })}
-            placeholder="Who they are, what they own, how they work, and their quality bar."
+            placeholder={t("team.personaPlaceholder")}
           />
         </Field>
         <ErrorNote error={error} />

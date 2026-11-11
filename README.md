@@ -1,3 +1,74 @@
+# Pantheon Studio — Tiếng Việt
+
+Bản Việt hóa từ [Pantheon Studio của adityaagarw](https://github.com/adityaagarw/Pantheon),
+giữ giấy phép Apache-2.0 và các thông báo bản quyền gốc. Tập trung dịch giao diện, thêm bộ
+chọn Việt/Anh và hướng dẫn tương tác; không phải một engine AI mới.
+
+**[Tải bản Windows x64](https://github.com/Neito112/Pantheon-Studio-Vietnamese/releases/latest)** ·
+**[Hướng dẫn HTML](docs/HUONG_DAN_SU_DUNG.html)** ·
+**[Kết quả kiểm tra bản dịch](docs/VIETNAMESE_QA.md)**
+
+## Chạy bản đã build
+
+Trong **Releases**, chọn một cách:
+
+- **Setup `.exe`**: tải bộ cài Windows x64 và chạy để cài ứng dụng.
+- **Portable `.zip`**: giải nén toàn bộ, giữ file `pantheon-studio.exe` cạnh thư mục
+  `runtime`, rồi mở `pantheon-studio.exe`. Không cần cài Python, Node hay Rust.
+- **`HUONG_DAN_SU_DUNG.html`**: tải và mở bằng Chrome/Edge; ảnh và các thao tác tương tác
+  đã được nhúng, dùng ngoại tuyến.
+- **`SHA256SUMS.txt`**: mã SHA-256 để đối chiếu các file tải về.
+
+Windows cần WebView2 Runtime để hiển thị app (thường đã có trên Windows 10/11).
+Portable giữ cấu hình/dữ liệu người dùng trong thư mục dữ liệu ứng dụng trên máy,
+không có nghĩa là dữ liệu tự đi theo file ZIP. Kết nối provider LLM hoặc cấu hình agent
+tương ứng để làm việc thật; provider mock chỉ phản hồi theo kịch bản.
+
+Bản tải sẵn của lần phát hành này là **Windows x64**. Mã nguồn gốc có hỗ trợ macOS/Linux;
+không gọi chúng là bản đã build/kiểm tra trong release này. Bộ cài chưa ký mã Windows;
+cập nhật tự động chưa được cấu hình ký cho bản Việt hóa. Tải phiên bản mới thủ công tại
+Releases của repo này. Ứng dụng dùng địa chỉ kiểm tra cập nhật của repo Việt hóa, không
+tự chuyển sang bản tiếng Anh của upstream.
+
+## Build lại từ mã nguồn
+
+Yêu cầu Node 22+, Rust/Cargo, Visual Studio C++ Build Tools, Python và `uv` trên Windows.
+
+```powershell
+python scripts/build.py
+```
+
+Hoặc mở `Build Pantheon Studio.bat`; sau khi build thành công, dùng `Run Pantheon Studio.bat`.
+Script tự chuẩn bị Python 3.12 cho engine. File build và cache nằm ngoài Git;
+các binary được phân phối qua GitHub Releases.
+
+Sau khi build xong, đóng gói installer, portable, hướng dẫn và checksum:
+
+```powershell
+python scripts/package_windows_release.py --tag vi-2.0.2-r1
+```
+
+Kết quả nằm trong `dist/vi-2.0.2-r1/github/`. Tạo commit nguồn trước khi đóng gói để
+`BUILD-INFO.json` ghi đúng commit. Không mở app trong khi Tauri đang đóng gói installer.
+
+Kiểm tra riêng phần giao diện/Việt hóa:
+
+```powershell
+cd ui
+npm ci
+npm test -- --run
+npx eslint src --max-warnings 0
+npm run build
+```
+
+## Tài liệu dự án gốc
+
+Phần dưới là README upstream để tra cứu kiến trúc và tính năng. Các liên kết cài đặt và
+release trong phần gốc trỏ tới **bản upstream**; để dùng bản Việt hóa, tải từ Releases
+ở đầu trang này.
+
+---
+
 <div align="center">
 
 # Pantheon Studio
@@ -439,6 +510,27 @@ The first run compiles the shell, which takes a few minutes.
 - UI in a browser: `cd ui && npm run dev`, then open http://localhost:1420.
 - Tests: `cd engine && uv run pytest` (375 tests).
 - Benchmarks from the command line: `cd engine/bench && python -m swarmbench --help`.
+
+### Build and open the app on Windows
+
+**Hướng dẫn cho người mới:** mở [Sổ tay Pantheon Studio bằng tiếng Việt](docs/HUONG_DAN_SU_DUNG.html)
+trong trình duyệt. Tài liệu HTML hoạt động ngoại tuyến, có ảnh giao diện, hướng dẫn từng
+bước, checklist, mẫu giao việc tương tác và phần gỡ rối.
+
+To create and immediately open the actual desktop app from this source checkout, double-click
+**`Build Pantheon Studio.bat`** in the repository folder. It builds the Vietnamese UI, bundles
+the engine runtime, creates the desktop app binary, starts it, and opens the separate
+artifacts folder. The first build can take several minutes and downloads dependencies. You
+need Python 3.12, Node 22, Rust (including Visual Studio C++ Build Tools), and `uv` available
+on `PATH`.
+
+The runnable app is `apps/desktop/src-tauri/target/release/pantheon-studio.exe`. After one
+successful build, double-click **`Run Pantheon Studio.bat`** any time to start it. The optional
+Windows installer `.exe` is a different file under `dist/<version>/artifacts/windows-x86_64/`;
+you do not need to run the installer to open the locally built app. These scripts do not
+install automatically, sign the Windows executable, or upload anything. For the released
+installer, use [Releases](https://github.com/adityaagarw/Pantheon/releases) or the install
+instructions above.
 
 ### Build the installers
 

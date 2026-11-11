@@ -7,12 +7,14 @@
 
 import { useEffect, useState } from "react";
 import { Button, cx, Field, Input, Select } from "@/components/ui";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import type { Account, Agent, AgentKind, KindCheck } from "@/lib/types";
 
 type Runner = Record<string, unknown>;
 
 export function KindTab({ draft, onChange, exclude = [] }: { draft: Agent; onChange: (kind: string, runner: Runner) => void; exclude?: string[] }) {
+  const t = useT();
   const [kinds, setKinds] = useState<AgentKind[] | null>(null);
   const [check, setCheck] = useState<KindCheck | "running" | null>(null);
   const [accounts, setAccounts] = useState<Account[]>([]);
@@ -31,7 +33,7 @@ export function KindTab({ draft, onChange, exclude = [] }: { draft: Agent; onCha
   const preset = String(runner.preset ?? "");
   // A check is about the settings it ran with: a different program, preset or account needs a new one.
   useEffect(() => setCheck(null), [kindId, preset, runner.command, runner.account]);
-  if (!kinds) return <div className="text-sm text-ink-3">Loading…</div>;
+  if (!kinds) return <div className="text-sm text-ink-3">{t("common.loading")}</div>;
 
   const kind = kinds.find((k) => k.id === kindId);
   const set = (patch: Runner) => onChange(kindId, { ...runner, ...patch });
@@ -41,7 +43,7 @@ export function KindTab({ draft, onChange, exclude = [] }: { draft: Agent; onCha
     api
       .checkKind(kindId, runner)
       .then(setCheck)
-      .catch((e) => setCheck({ ok: false, checks: [{ label: "Check", ok: false, detail: String(e) }] }));
+      .catch((e) => setCheck({ ok: false, checks: [{ label: t("team.checkLabel"), ok: false, detail: String(e) }] }));
   };
 
   return (
@@ -57,7 +59,7 @@ export function KindTab({ draft, onChange, exclude = [] }: { draft: Agent; onCha
             <div className="mt-1 text-xs text-ink-3">{k.description}</div>
           </button>
         ))}
-        {!kind && <div className="text-sm text-bad">This agent&apos;s kind ({kindId}) isn&apos;t available: is its pack switched off?</div>}
+        {!kind && <div className="text-sm text-bad">{t("team.kindUnavailable", { kind: kindId })}</div>}
       </div>
 
       {kind && kind.presets.length > 0 && (
@@ -95,19 +97,19 @@ export function KindTab({ draft, onChange, exclude = [] }: { draft: Agent; onCha
               ) : f.type === "account" ? (
                 <div className="flex items-center gap-2">
                   <Select value={String(runner[f.key] ?? "")} onChange={(e) => set({ [f.key]: e.target.value })}>
-                    <option value="">{f.key === "account" ? "This computer's sign-in" : "Nothing: wait for the reset"}</option>
+                    <option value="">{f.key === "account" ? t("team.accountThisComputer") : t("team.accountNothing")}</option>
                     {accounts
                       .filter((a) => a.tool === preset && (f.key === "account" || a.id !== runner.account))
                       .map((a) => (
                         <option key={a.id} value={a.id}>
                           {a.name} ({a.methodLabel}
-                          {a.status.signedIn === false ? ", not signed in" : ""})
+                          {a.status.signedIn === false ? t("team.accountNotSignedIn") : ""})
                         </option>
                       ))}
                   </Select>
                   {f.key === "account" && (
                     <a href="/settings?tab=accounts" className="shrink-0 text-xs text-accent hover:underline">
-                      Manage
+                      {t("team.manage")}
                     </a>
                   )}
                 </div>
@@ -117,7 +119,7 @@ export function KindTab({ draft, onChange, exclude = [] }: { draft: Agent; onCha
                     value={String(runner[f.key] ?? "")}
                     onChange={(e) => set({ [f.key]: e.target.value })}
                     list={`models-${draft.id}`}
-                    placeholder={models.length ? "Pick one, or leave empty for its default" : "Its default"}
+                    placeholder={models.length ? t("team.pickModelPlaceholder") : t("team.itsDefault")}
                   />
                   <datalist id={`models-${draft.id}`}>
                     {models.map((m) => (
@@ -147,9 +149,9 @@ export function KindTab({ draft, onChange, exclude = [] }: { draft: Agent; onCha
         <div className="grid gap-2">
           <div className="flex items-center gap-3">
             <Button variant="secondary" onClick={runCheck} disabled={check === "running"}>
-              {check === "running" ? "Checking…" : "Check"}
+              {check === "running" ? t("team.checking") : t("team.check")}
             </Button>
-            <span className="text-xs text-ink-3">Is it installed, signed in and answering? Which models can it use?</span>
+            <span className="text-xs text-ink-3">{t("team.checkHint")}</span>
           </div>
           {check && check !== "running" && (
             <div className="grid gap-1.5 rounded-lg border border-line p-3">
@@ -160,7 +162,7 @@ export function KindTab({ draft, onChange, exclude = [] }: { draft: Agent; onCha
                   <span className="min-w-0 break-words text-ink-3">{c.detail}</span>
                 </div>
               ))}
-              {models.length > 0 && <div className="text-xs text-ink-3">{models.length} models offered: pick one in the Model box.</div>}
+              {models.length > 0 && <div className="text-xs text-ink-3">{t("team.modelsOffered", { count: models.length })}</div>}
               {check.note && <div className="text-xs text-ink-3">{check.note}</div>}
             </div>
           )}
@@ -168,13 +170,10 @@ export function KindTab({ draft, onChange, exclude = [] }: { draft: Agent; onCha
       )}
 
       <div className="rounded-lg border border-line bg-panel-2/40 p-3 text-xs leading-relaxed text-ink-3">
-        {kindId === "llm" && "Pantheon runs this agent itself, with the model on the Model tab and the tools on the Tools tab."}
-        {kindId === "human" &&
-          "A person: what's sent to them waits in your Inbox, and you answer as them from their Console. They can lead, review, be asked anything, and do flow steps: human in the loop."}
-        {kindId === "cli" &&
-          "Runs in this agent's own folder (its git worktree when the organization uses them), as a full member: Pantheon's tools (messages, tasks, flow steps, git) reach it through MCP; its tool calls, thinking and cost show live in the office and Sessions; what it asks permission for waits in your Inbox; you can steer it while it works; it remembers the conversation from turn to turn (Clear context starts it afresh); and when its plan's usage limit is reached, its work waits for the reset instead of failing. The program must be installed and signed in on this computer (or, for Claude Code and Codex, given an account of its own): Check tells you."}
-        {kindId === "remote" &&
-          "Pantheon sends it its messages over HTTP and delivers its replies. Its API key is an organization secret (Settings → Secrets) granted to this agent; it's only ever sent to the endpoint's host."}
+        {kindId === "llm" && t("team.kindLlmHint")}
+        {kindId === "human" && t("team.kindHumanHint")}
+        {kindId === "cli" && t("team.kindCliHint")}
+        {kindId === "remote" && t("team.kindRemoteHint")}
       </div>
     </div>
   );

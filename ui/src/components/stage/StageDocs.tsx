@@ -3,13 +3,14 @@
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Badge, Button, ErrorNote, cx } from "@/components/ui";
+import { useLocale, useT, formatRelative } from "@/i18n";
 import { api } from "@/lib/api";
-import { timeAgo } from "@/lib/format";
 import type { Agent, AttachmentInfo, StageDocEvent, StageDocKind } from "@/lib/types";
 import { useAttention } from "./useAttention";
 
 function Loading() {
-  return <div className="p-6 text-sm text-ink-3">Loading…</div>;
+  const t = useT();
+  return <div className="p-6 text-sm text-ink-3">{t("stage.loading")}</div>;
 }
 const SheetEditor = dynamic(() => import("./SheetEditor"), { ssr: false, loading: Loading });
 const PdfViewer = dynamic(() => import("./PdfViewer"), { ssr: false, loading: Loading });
@@ -17,7 +18,7 @@ const NotebookView = dynamic(() => import("./NotebookView"), { ssr: false, loadi
 const MarkdownDoc = dynamic(() => import("./MarkdownDoc"), { ssr: false, loading: Loading });
 
 export const DOC_ICON: Record<StageDocKind, string> = { sheet: "▦", pdf: "📄", notebook: "📓", markdown: "📝" };
-const KIND_LABEL: Record<StageDocKind, string> = { sheet: "Spreadsheet", pdf: "PDF", notebook: "Notebook", markdown: "Markdown" };
+const KIND_LABEL: Record<StageDocKind, string> = { sheet: "stage.kindSheet", pdf: "stage.kindPdf", notebook: "stage.kindNotebook", markdown: "stage.kindMarkdown" };
 
 /** Which kind of document a file opens as, if any. */
 export function docKindFor(name: string): StageDocKind | null {
@@ -48,13 +49,15 @@ export function DocView({
   chatAgentId?: string | null;
   onDeleted: () => void;
 }) {
+  const t = useT();
+  const locale = useLocale();
   const [where, setWhere] = useState("");
   const [renaming, setRenaming] = useState(false);
   const [title, setTitle] = useState(doc.title);
   const [error, setError] = useState<string | null>(null);
   const agentId = chatAgentId ?? docAgent(doc, agents);
   useAttention(agentId, agentId ? { kind: doc.kind, docId: doc.id, title: doc.title, text: where } : null, [agentId, doc.id, doc.title, where]);
-  const onView = useCallback((t: string) => setWhere(t), []);
+  const onView = useCallback((t2: string) => setWhere(t2), []);
   const exportLabel = doc.kind === "sheet" ? ".xlsx" : doc.kind === "notebook" ? ".ipynb" : doc.kind === "markdown" ? ".md" : "PDF";
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -73,14 +76,14 @@ export function DocView({
             className="rounded border border-line bg-panel-2 px-2 py-0.5 font-semibold"
           />
         ) : (
-          <button className="font-semibold hover:underline cursor-text" onClick={() => (setTitle(doc.title), setRenaming(true))} title="Rename">
+          <button className="font-semibold hover:underline cursor-text" onClick={() => (setTitle(doc.title), setRenaming(true))} title={t("stage.rename")}>
             {doc.title}
           </button>
         )}
-        <Badge>{KIND_LABEL[doc.kind]}</Badge>
+        <Badge>{t(KIND_LABEL[doc.kind])}</Badge>
         <span className="text-xs text-ink-3">
           {doc.updatedBy !== "user" ? `${doc.updatedBy} · ` : ""}
-          {timeAgo(doc.updatedAt)} · shared with your agents
+          {formatRelative(locale, doc.updatedAt)} · {t("stage.sharedWithAgents")}
         </span>
         <div className="ml-auto flex items-center gap-1">
           <a href={api.stageDocExportUrl(doc.id)} download className="rounded px-2 py-1 text-xs text-ink-2 hover:bg-panel-2 hover:text-ink">
@@ -90,10 +93,10 @@ export function DocView({
             size="sm"
             variant="ghost"
             onClick={() => {
-              if (window.confirm(`Delete “${doc.title}”?`)) void api.deleteStageDoc(doc.id).then(onDeleted, (e) => setError((e as Error).message));
+              if (window.confirm(t("stage.deleteConfirm", { title: doc.title }))) void api.deleteStageDoc(doc.id).then(onDeleted, (e) => setError((e as Error).message));
             }}
           >
-            Delete
+            {t("stage.delete")}
           </Button>
         </div>
       </div>
@@ -115,6 +118,7 @@ export function DocView({
 
 /** "+" on the Documents section: a new sheet or notebook, or open one from Files. */
 export function NewDocMenu({ orgId, count, onCreated }: { orgId: string; count: number; onCreated: (id: string) => void }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [files, setFiles] = useState<AttachmentInfo[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -142,19 +146,19 @@ export function NewDocMenu({ orgId, count, onCreated }: { orgId: string; count: 
   const fileList = useMemo(() => files ?? [], [files]);
   return (
     <div className="relative" ref={box}>
-      <button className="text-ink-3 hover:text-ink cursor-pointer" title="New document" onClick={() => setOpen((o) => !o)}>
+      <button className="text-ink-3 hover:text-ink cursor-pointer" title={t("stage.newDocument")} onClick={() => setOpen((o) => !o)}>
         +
       </button>
       {open && (
         <div className="absolute right-0 top-5 z-30 w-64 rounded-lg border border-line-2 bg-surface p-1.5 text-sm normal-case tracking-normal shadow-2xl">
-          <MenuItem onClick={() => void make({ kind: "sheet", title: `Sheet ${count + 1}` })}>▦ New spreadsheet</MenuItem>
-          <MenuItem onClick={() => void make({ kind: "notebook", title: `Notebook ${count + 1}` })}>📓 New notebook</MenuItem>
-          <MenuItem onClick={() => void make({ kind: "markdown", title: `Document ${count + 1}` })}>📝 New Markdown document</MenuItem>
-          <div className="mx-2 mb-1 mt-2 text-[11px] font-medium uppercase tracking-wider text-ink-3">Open from Files</div>
+          <MenuItem onClick={() => void make({ kind: "sheet", title: t("stage.sheetName", { count: count + 1 }) })}>{t("stage.newSpreadsheet")}</MenuItem>
+          <MenuItem onClick={() => void make({ kind: "notebook", title: t("stage.notebookName", { count: count + 1 }) })}>{t("stage.newNotebook")}</MenuItem>
+          <MenuItem onClick={() => void make({ kind: "markdown", title: t("stage.documentName", { count: count + 1 }) })}>{t("stage.newMarkdown")}</MenuItem>
+          <div className="mx-2 mb-1 mt-2 text-[11px] font-medium uppercase tracking-wider text-ink-3">{t("stage.openFromFiles")}</div>
           {files === null ? (
-            <div className="px-2 py-1 text-xs text-ink-3">Loading…</div>
+            <div className="px-2 py-1 text-xs text-ink-3">{t("stage.loading")}</div>
           ) : fileList.length === 0 ? (
-            <div className="px-2 py-1 text-xs leading-relaxed text-ink-3">No PDFs, spreadsheets (.xlsx, .csv), notebooks (.ipynb) or Markdown (.md) in Files yet. Upload them on the Files tab.</div>
+            <div className="px-2 py-1 text-xs leading-relaxed text-ink-3">{t("stage.noOpenableFiles")}</div>
           ) : (
             <div className="max-h-60 overflow-y-auto">
               {fileList.map((f) => (

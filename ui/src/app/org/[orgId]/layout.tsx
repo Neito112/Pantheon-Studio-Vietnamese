@@ -5,25 +5,14 @@ import { useParams, usePathname } from "next/navigation";
 import type { ReactNode } from "react";
 import { InboxButton } from "@/components/InboxDrawer";
 import { Badge, Button, cx, Spinner } from "@/components/ui";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import { useOrg, useOrgConnection } from "@/store/org";
-
-const TABS = [
-  { href: "", label: "Office" },
-  { href: "/stage", label: "Stage" },
-  { href: "/board", label: "Board" },
-  { href: "/comms", label: "Comms" },
-  { href: "/sessions", label: "Sessions" },
-  { href: "/memory", label: "Memory" },
-  { href: "/shadow", label: "Shadow" },
-  { href: "/team", label: "Team" },
-  { href: "/files", label: "Files" },
-  { href: "/settings", label: "Settings" },
-];
 
 export default function OrgLayout({ children }: { children: ReactNode }) {
   const { orgId } = useParams<{ orgId: string }>();
   const pathname = usePathname();
+  const t = useT();
   useOrgConnection(orgId);
   const org = useOrg((s) => s.org);
   const stream = useOrg((s) => s.stream);
@@ -31,17 +20,29 @@ export default function OrgLayout({ children }: { children: ReactNode }) {
   const error = useOrg((s) => s.error);
   const working = useOrg((s) => Object.values(s.agents).filter((a) => a.runtimeStatus === "working").length);
   const base = `/org/${orgId}`;
+  const tabs = [
+    { href: "", label: t("org.tabOffice") },
+    { href: "/stage", label: t("org.tabStage") },
+    { href: "/board", label: t("org.tabBoard") },
+    { href: "/comms", label: t("org.tabComms") },
+    { href: "/sessions", label: t("org.tabSessions") },
+    { href: "/memory", label: t("org.tabMemory") },
+    { href: "/shadow", label: t("org.tabShadow") },
+    { href: "/team", label: t("org.tabTeam") },
+    { href: "/files", label: t("org.tabFiles") },
+    { href: "/settings", label: t("org.tabSettings") },
+  ];
 
   return (
     <div className="flex h-full flex-col">
       <header className="flex shrink-0 flex-wrap items-center gap-x-4 border-b border-line bg-panel px-3 md:h-12 md:flex-nowrap md:px-4">
         <div className="flex h-11 min-w-0 flex-1 items-center gap-2 md:h-auto md:flex-none">
           <span className="truncate font-semibold">{org?.name ?? "…"}</span>
-          {org?.status === "paused" && <Badge tone="warn">Paused</Badge>}
-          {working > 0 && <Badge tone="accent">{working} working</Badge>}
+          {org?.status === "paused" && <Badge tone="warn">{t("org.paused")}</Badge>}
+          {working > 0 && <Badge tone="accent">{t("org.workingCount", { count: working })}</Badge>}
         </div>
         <nav className="no-scrollbar order-last -mx-3 flex h-10 w-[calc(100%+1.5rem)] items-stretch gap-1 overflow-x-auto border-t border-line px-2 md:order-none md:mx-0 md:h-full md:w-auto md:border-t-0 md:px-0">
-          {TABS.map((t) => {
+          {tabs.map((t) => {
             const href = base + t.href;
             const active = t.href === "" ? pathname === base : pathname.startsWith(href);
             return (
@@ -61,17 +62,17 @@ export default function OrgLayout({ children }: { children: ReactNode }) {
         <div className="ml-auto flex h-11 items-center gap-2 md:h-auto">
           <span
             className={cx("size-2 rounded-full", stream === "live" ? "bg-ok" : stream === "closed" ? "bg-ink-3" : "bg-warn")}
-            title={`Event stream: ${stream}`}
+            title={t("org.eventStreamTitle", { status: stream })}
           />
           {org && (
             <Button
               size="sm"
               variant={org.status === "paused" ? "ok" : "secondary"}
               onClick={() => api.updateOrg(org.id, { status: org.status === "paused" ? "running" : "paused" }).then((o) => useOrg.getState().setOrg(o))}
-              title={org.status === "paused" ? "Resume all agents" : "Pause all agents (in-flight steps finish)"}
+              title={org.status === "paused" ? t("org.resumeAllAgents") : t("org.pauseAllAgents")}
             >
               {org.status === "paused" ? "▶" : "❚❚"}
-              <span className="hidden sm:inline">{org.status === "paused" ? " Resume" : " Pause"}</span>
+              <span className="hidden sm:inline">{org.status === "paused" ? t("org.resume") : t("org.pause")}</span>
             </Button>
           )}
           <InboxButton orgId={orgId} />

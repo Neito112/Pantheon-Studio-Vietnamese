@@ -6,8 +6,8 @@ import { AgentAvatar } from "@/components/agent";
 import { dmKey, useDmMessages } from "@/components/AgentInspector";
 import { Composer, MessageList, useAutoSpeak } from "@/components/Chat";
 import { Badge, Button, cx, Empty, Toggle } from "@/components/ui";
+import { useLocale, useT, formatRelative } from "@/i18n";
 import { api } from "@/lib/api";
-import { timeAgo } from "@/lib/format";
 import { WhiteboardEditor } from "@/components/WhiteboardOverlay";
 import type { Agent, ComputerStatus, WhiteboardInfo } from "@/lib/types";
 import type { LiveState } from "@/lib/liveTalk";
@@ -51,6 +51,8 @@ function usePref(key: string, initial: boolean): [boolean, (v: boolean) => void]
 
 export default function StagePage() {
   const orgId = useOrg((s) => s.orgId)!;
+  const t = useT();
+  const locale = useLocale();
   const allPages = useOrg(useShallow((s) => Object.values(s.stagePages).sort((a, b) => (b.updatedAt ?? "").localeCompare(a.updatedAt ?? ""))));
   // Archived pages sit in their own folder, out of the list, links and following.
   const pages = useMemo(() => allPages.filter((p) => p.folder !== "archive"), [allPages]);
@@ -169,10 +171,10 @@ export default function StagePage() {
     <div className="relative flex h-full">
       {listCollapsed && (
         <div className="hidden w-10 shrink-0 flex-col items-center gap-2 border-r border-line bg-panel py-2 md:flex">
-          <button onClick={() => setListCollapsed(false)} className="rounded p-1 text-ink-3 hover:bg-panel-2 hover:text-ink cursor-pointer" title="Show the Stage list">
+          <button onClick={() => setListCollapsed(false)} className="rounded p-1 text-ink-3 hover:bg-panel-2 hover:text-ink cursor-pointer" title={t("stage.showList")}>
             »
           </button>
-          <span className="mt-2 text-[10px] uppercase tracking-widest text-ink-3 [writing-mode:vertical-rl]">Stage</span>
+          <span className="mt-2 text-[10px] uppercase tracking-widest text-ink-3 [writing-mode:vertical-rl]">{t("stage.stageLabel")}</span>
         </div>
       )}
       <aside
@@ -183,14 +185,14 @@ export default function StagePage() {
         )}
       >
         <div className="mb-2 hidden justify-end md:flex">
-          <button onClick={() => setListCollapsed(true)} className="rounded px-1.5 text-ink-3 hover:bg-panel-2 hover:text-ink cursor-pointer" title="Hide the list">
+          <button onClick={() => setListCollapsed(true)} className="rounded px-1.5 text-ink-3 hover:bg-panel-2 hover:text-ink cursor-pointer" title={t("stage.hideList")}>
             «
           </button>
         </div>
-        <Section title="Lessons & scenes">
+        <Section title={t("stage.lessonsAndScenes")}>
           {pages.length === 0 && (
             <div className="px-2 text-xs leading-relaxed text-ink-3">
-              Nothing on the Stage yet. Ask an agent to teach you something visually, e.g. &ldquo;show me how a Fourier series builds a square wave&rdquo;.
+              {t("stage.lessonsEmpty")}
             </div>
           )}
           {pages.map((p) => (
@@ -200,8 +202,8 @@ export default function StagePage() {
               onClick={() => (setView({ kind: "page", id: p.id }), setListOpen(false))}
               icon={<AgentAvatar agent={p.agentId ? agents[p.agentId] : undefined} size={18} />}
               label={p.title}
-              meta={`v${p.version} · ${timeAgo(p.updatedAt)}`}
-              action={{ label: "Archive", title: "Move to the archive", run: () => void api.moveStagePage(p.id, "archive") }}
+              meta={`v${p.version} · ${formatRelative(locale, p.updatedAt)}`}
+              action={{ label: t("stage.archive"), title: t("stage.archiveAction"), run: () => void api.moveStagePage(p.id, "archive") }}
             />
           ))}
           {archived.length > 0 && (
@@ -211,7 +213,7 @@ export default function StagePage() {
                 className="mt-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm text-ink-3 hover:bg-panel-2/60 hover:text-ink-2 cursor-pointer"
               >
                 <span className="w-[18px] text-center">{archiveOpen ? "▾" : "▸"}</span>
-                <span className="flex-1">🗄 Archive</span>
+                <span className="flex-1">🗄 {t("stage.archive")}</span>
                 <span className="text-[10px]">{archived.length}</span>
               </button>
               {archiveOpen && (
@@ -224,7 +226,7 @@ export default function StagePage() {
                       icon={<AgentAvatar agent={p.agentId ? agents[p.agentId] : undefined} size={18} />}
                       label={p.title}
                       meta={`v${p.version}`}
-                      action={{ label: "Restore", title: "Put it back on the Stage list", run: () => void api.moveStagePage(p.id, "") }}
+                      action={{ label: t("stage.restore"), title: t("stage.restoreTitle"), run: () => void api.moveStagePage(p.id, "") }}
                     />
                   ))}
                 </div>
@@ -233,12 +235,12 @@ export default function StagePage() {
           )}
         </Section>
         <Section
-          title="Whiteboards"
+          title={t("stage.whiteboards")}
           action={
             <button
               className="text-ink-3 hover:text-ink cursor-pointer"
-              title="New whiteboard"
-              onClick={() => api.createWhiteboard(orgId, `Board ${boards.length + 1}`).then((b) => (setView({ kind: "whiteboard", id: b.id }), setListOpen(false)))}
+              title={t("stage.newWhiteboard")}
+              onClick={() => api.createWhiteboard(orgId, t("stage.boardName", { count: boards.length + 1 })).then((b) => (setView({ kind: "whiteboard", id: b.id }), setListOpen(false)))}
             >
               +
             </button>
@@ -255,9 +257,9 @@ export default function StagePage() {
             />
           ))}
         </Section>
-        <Section title="Documents" action={<NewDocMenu orgId={orgId} count={docs.length} onCreated={(id) => (setView({ kind: "doc", id }), setListOpen(false))} />}>
+        <Section title={t("stage.documents")} action={<NewDocMenu orgId={orgId} count={docs.length} onCreated={(id) => (setView({ kind: "doc", id }), setListOpen(false))} />}>
           {docs.length === 0 && (
-            <div className="px-2 text-xs leading-relaxed text-ink-3">Spreadsheets, PDFs, notebooks and Markdown documents you and the agents work on together. Use + or ask an agent.</div>
+            <div className="px-2 text-xs leading-relaxed text-ink-3">{t("stage.documentsEmpty")}</div>
           )}
           {docs.map((d) => (
             <Item
@@ -266,42 +268,42 @@ export default function StagePage() {
               onClick={() => (setView({ kind: "doc", id: d.id }), setListOpen(false))}
               icon={<span className="w-[18px] text-center">{DOC_ICON[d.kind]}</span>}
               label={d.title}
-              meta={d.updatedBy !== "user" ? d.updatedBy : timeAgo(d.updatedAt)}
+              meta={d.updatedBy !== "user" ? d.updatedBy : formatRelative(locale, d.updatedAt)}
             />
           ))}
         </Section>
-        <Section title="Agents' browsers">
-          {Object.keys(openBrowsers).length === 0 && <div className="px-2 text-xs text-ink-3">No agent has a browser open.</div>}
+        <Section title={t("stage.agentsBrowsers")}>
+          {Object.keys(openBrowsers).length === 0 && <div className="px-2 text-xs text-ink-3">{t("stage.noBrowserOpen")}</div>}
           {Object.entries(openBrowsers).map(([aid, b]) => (
             <Item
               key={aid}
               active={view?.kind === "browser" && view.agentId === aid}
               onClick={() => (setView({ kind: "browser", agentId: aid }), setListOpen(false))}
               icon={<AgentAvatar agent={agents[aid]} size={18} />}
-              label={b.title || b.url || "Browser"}
+              label={b.title || b.url || t("stage.browserLabel")}
               meta={agents[aid]?.name ?? ""}
             />
           ))}
         </Section>
-        <Section title="Computer">
-          <Item active={view?.kind === "computer"} onClick={() => (setView({ kind: "computer" }), setListOpen(false))} icon={<span className="w-[18px] text-center">🖥</span>} label="Sandbox desktop" meta="live" />
+        <Section title={t("stage.computer")}>
+          <Item active={view?.kind === "computer"} onClick={() => (setView({ kind: "computer" }), setListOpen(false))} icon={<span className="w-[18px] text-center">🖥</span>} label={t("stage.sandboxDesktop")} meta={t("stage.live")} />
         </Section>
       </aside>
       <section className={cx("min-w-0 flex-1 flex-col bg-[#0f1116] md:flex", listOpen && view ? "hidden" : "flex")}>
         <button onClick={() => setListOpen(true)} className="border-b border-line px-3 py-2 text-left text-sm text-ink-2 md:hidden cursor-pointer">
-          ‹ Stage
+          {t("stage.stageBack")}
         </button>
         {view && view.kind !== "page" && workers.length > 0 && (
           <div className="flex items-center gap-2 border-b border-line bg-panel/80 px-3 py-1 text-xs text-ink-3">
-            <span>{chatAgentId && agents[chatAgentId] ? `Working with ${agents[chatAgentId].name}` : "Working on the Stage"}</span>
+            <span>{chatAgentId && agents[chatAgentId] ? t("stage.workingWith", { name: agents[chatAgentId].name }) : t("stage.workingOnStage")}</span>
             <Button size="sm" className="ml-auto" variant={chatOpen ? "primary" : "ghost"} onClick={() => setChatOpen((o) => !o)}>
-              💬 {chatOpen ? "Hide chat" : "Talk"}
+              💬 {chatOpen ? t("stage.hideChat") : t("stage.talk")}
             </Button>
           </div>
         )}
         {!view ? (
-          <Empty title="The Stage" icon="🎬">
-            Agents put interactive lessons, animations and 3D scenes here — and you can watch their browsers and the computer they use.
+          <Empty title={t("stage.stageTitle")} icon="🎬">
+            {t("stage.stageEmpty")}
           </Empty>
         ) : view.kind === "page" && current ? (
           <StageFrame
@@ -337,7 +339,7 @@ export default function StagePage() {
         ) : view.kind === "doc" && currentDoc ? (
           <DocView key={view.id} doc={currentDoc} agents={agents} chatAgentId={focusAgent} onDeleted={() => setView(null)} />
         ) : (
-          <Empty title="That page was removed" />
+          <Empty title={t("stage.pageRemoved")} />
         )}
       </section>
       {chatOpen && view && chatAgentId && (view.kind !== "page" || current?.agentId) && (
@@ -376,10 +378,10 @@ export default function StagePage() {
               onClose={() => setChatOpen(false)}
               wide={chatWide}
               onWide={setChatWide}
-              role="Working with you"
+              role={t("stage.workingWithYou")}
               choices={workers}
               onPick={setChatPick}
-              empty="Talk while you both work: they see what you're looking at, and their changes show up live. Type, or tap Live and just talk."
+              empty={t("stage.talkWhileWorking")}
             />
           )}
         </aside>
@@ -468,6 +470,7 @@ function StageFrame({
   onToggleChat: () => void;
 }) {
   const frame = useRef<HTMLIFrameElement>(null);
+  const t = useT();
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -567,34 +570,40 @@ function StageFrame({
       <div className="flex flex-wrap items-center gap-2 border-b border-line bg-panel px-4 py-2">
         <span className="font-semibold">{page.title}</span>
         <Badge>v{page.version}</Badge>
-        {agentName && <span className="text-xs text-ink-3">by {agentName}</span>}
+        {agentName && <span className="text-xs text-ink-3">{t("stage.by", { name: agentName })}</span>}
         {stepLabel && <Badge tone="accent">{stepLabel}</Badge>}
         {captionText && <span className="min-w-0 max-w-[38%] truncate text-xs text-ink-3" title={captionText}>{captionText}</span>}
-        {held && <Badge tone="warn">{learnerTalking ? "paused · you're talking" : `paused · ${agentName ?? "the teacher"} is answering`}</Badge>}
-        {error && <Badge tone="bad">page error: {error.slice(0, 80)}</Badge>}
-        {sent && <Badge tone="ok">sent to {agentName ?? "the agent"}</Badge>}
+        {held && (
+          <Badge tone="warn">
+            {learnerTalking
+              ? t("stage.pausedTalking")
+              : t("stage.pausedAnswering", { name: agentName ?? t("stage.theTeacher") })}
+          </Badge>
+        )}
+        {error && <Badge tone="bad">{t("stage.pageError", { error: error.slice(0, 80) })}</Badge>}
+        {sent && <Badge tone="ok">{t("stage.sentTo", { name: agentName ?? t("stage.theAgent") })}</Badge>}
         <span className="ml-auto flex gap-1.5">
           {page.agentId && (
-            <Button size="sm" variant={awaiting ? "primary" : "ghost"} onClick={awaiting ? onResume : onPause} title={awaiting ? "Continue the lesson" : "Pause the lesson to ask something"}>
-              {awaiting ? "▶ Resume" : "✋ Ask"}
+            <Button size="sm" variant={awaiting ? "primary" : "ghost"} onClick={awaiting ? onResume : onPause} title={awaiting ? t("stage.continueLesson") : t("stage.pauseLesson")}>
+              {awaiting ? t("stage.resume") : t("stage.ask")}
             </Button>
           )}
           {page.agentId && (
             <Button size="sm" variant={chatOpen ? "primary" : "ghost"} onClick={onToggleChat}>
-              💬 Talk
+              💬 {t("stage.talk")}
             </Button>
           )}
           <Button size="sm" variant="ghost" onClick={() => (setError(null), setReload((r) => r + 1))}>
-            ↻ Restart
+            {t("stage.restart")}
           </Button>
           <a href={src} target="_blank" rel="noreferrer">
             <Button size="sm" variant="ghost">
-              ⤢ Open
+              {t("stage.open")}
             </Button>
           </a>
           {confirmDelete ? (
             <Button size="sm" variant="danger" onClick={() => api.deleteStagePage(page.id)}>
-              Delete page
+              {t("stage.deletePage")}
             </Button>
           ) : (
             <Button size="sm" variant="ghost" onClick={() => setConfirmDelete(true)}>
@@ -630,7 +639,7 @@ function LessonChat({
   onClose,
   wide,
   onWide,
-  role = "Your teacher",
+  role,
   choices,
   onPick,
   empty,
@@ -657,6 +666,7 @@ function LessonChat({
 }) {
   const agents = useOrg((s) => s.agents);
   const messages = useDmMessages(agentId);
+  const t = useT();
   const [speakReplies, setSpeakReplies] = useState(false);
   const [liveOn, setLiveOn] = useState(false);
   const speakOn = speakReplies || liveOn;
@@ -744,7 +754,7 @@ function LessonChat({
             value={agentId}
             onChange={(e) => onPick(e.target.value)}
             className="min-w-0 truncate rounded border border-line bg-panel-2 px-1.5 py-0.5 text-sm font-semibold"
-            title="Talk to someone else"
+            title={t("stage.talkToSomeoneElse")}
           >
             {choices.map((a) => (
               <option key={a.id} value={a.id}>
@@ -753,22 +763,22 @@ function LessonChat({
             ))}
           </select>
         ) : (
-          <span className="truncate text-sm font-semibold">{agentName ?? "Teacher"}</span>
+          <span className="truncate text-sm font-semibold">{agentName ?? t("stage.teacher")}</span>
         )}
-        <span className="ml-auto text-[11px] text-ink-3">{role}</span>
-        <button onClick={() => onWide(!wide)} className="hidden text-ink-3 hover:text-ink md:block cursor-pointer" title={wide ? "Narrower" : "Wider"}>
+        <span className="ml-auto text-[11px] text-ink-3">{role ?? t("stage.yourTeacherRole")}</span>
+        <button onClick={() => onWide(!wide)} className="hidden text-ink-3 hover:text-ink md:block cursor-pointer" title={wide ? t("stage.narrower") : t("stage.wider")}>
           {wide ? "⇥" : "⇤"}
         </button>
-        <button onClick={onClose} className="text-ink-3 hover:text-ink cursor-pointer" aria-label="Close chat">
+        <button onClick={onClose} className="text-ink-3 hover:text-ink cursor-pointer" aria-label={t("stage.closeChat")}>
           ✕
         </button>
       </div>
       <div className="flex items-center justify-between px-4 pt-3 text-xs font-medium uppercase tracking-wider text-ink-3">
-        <span className="normal-case tracking-normal">Conversation with you</span>
-        <Toggle checked={speakOn} onChange={setSpeakReplies} label={<span className="normal-case tracking-normal">Speak replies</span>} />
+        <span className="normal-case tracking-normal">{t("stage.conversationWithYou")}</span>
+        <Toggle checked={speakOn} onChange={setSpeakReplies} label={<span className="normal-case tracking-normal">{t("stage.speakReplies")}</span>} />
       </div>
       <div className="flex items-center justify-between gap-2 px-4 pt-1.5 text-xs text-ink-3">
-        <Toggle checked={headphones} onChange={onHeadphones} label={<span title="Lets you talk over the lesson. On speakers the narration can leak into the microphone.">🎧 Headphones</span>} />
+        <Toggle checked={headphones} onChange={onHeadphones} label={<span title={t("stage.headphonesTitle")}>{t("stage.headphones")}</span>} />
       </div>
       <MessageList
         messages={messages}
@@ -779,14 +789,13 @@ function LessonChat({
             <div className="py-8 text-center text-sm text-ink-3">{empty}</div>
           ) : (
           <div className="py-8 text-center text-sm text-ink-3">
-            Ask your teacher a question — type it, or tap <b>Live</b> and ask out loud. The lesson pauses while you ask and picks up again once they&apos;ve answered.
-            {headphones ? " With headphones you can just start talking over the lesson." : " On speakers, tap ✋ Ask first, then speak."}
+            {t("stage.askTeacher")} {headphones ? t("stage.headphonesHint") : t("stage.speakersHint")}
           </div>
           )
         }
       />
       <Composer
-        placeholder={`${empty ? "Message" : "Ask"} ${agentName ?? "your teacher"}…`}
+        placeholder={`${empty ? t("stage.messagePlaceholder", { name: agentName ?? t("stage.yourTeacher") }) : t("stage.askPlaceholder", { name: agentName ?? t("stage.yourTeacher") })}`}
         attach={{ orgId, agentId }}
         onSend={async (t, files) => {
           await beginAsk(); // pause and notify the teacher before the question is sent
@@ -818,6 +827,7 @@ function BrowserView({
   onDesktop: () => void;
 }) {
   const [t, setT] = useState(() => Date.now());
+  const tr = useT();
   useEffect(() => setT(Date.now()), [info?.at]);
   // Also refresh every few seconds while watching.
   useEffect(() => {
@@ -829,20 +839,20 @@ function BrowserView({
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-line bg-panel px-4 py-2 text-sm">
-        <span className="font-semibold">{name}&apos;s browser</span>
+        <span className="font-semibold">{tr("stage.agentBrowser", { name })}</span>
         <span className="min-w-0 truncate rounded bg-bg px-2 py-0.5 font-mono text-xs text-ink-2">{info?.url || "…"}</span>
         {info?.where === "sandbox" && (
           <button
             onClick={onDesktop}
-            title="It's a real browser on the sandbox desktop: watch it live, solve a human check, or sign in for your agents"
+            title={tr("stage.sandboxTakeoverTitle")}
             className="ml-auto shrink-0 rounded-md border border-line px-2 py-0.5 text-xs text-ink-2 hover:bg-panel-2 hover:text-ink cursor-pointer"
           >
-            🖥 Take over on the sandbox desktop
+            {tr("stage.sandboxTakeover")}
           </button>
         )}
       </div>
       <div className="min-h-0 flex-1 overflow-auto p-3">
-        <img src={`${backendHttpBase()}/api/v1/agents/${agentId}/browser.jpg?t=${t}`} alt={info?.title ?? "browser"} className="mx-auto max-w-full rounded-lg border border-line shadow-lg" />
+        <img src={`${backendHttpBase()}/api/v1/agents/${agentId}/browser.jpg?t=${t}`} alt={info?.title ?? tr("stage.browserAlt")} className="mx-auto max-w-full rounded-lg border border-line shadow-lg" />
       </div>
     </div>
   );
@@ -876,6 +886,7 @@ function WhiteboardView({
 /** What the agent is working on, on this computer (cua-driver works in the background, so
  * there's nothing to see on screen): its window, refreshed while it works. */
 function LivePreview() {
+  const t = useT();
   const [shot, setShot] = useState<{ image: string | null; where?: string; agent?: string | null; working?: boolean; reason?: string } | null>(null);
   useEffect(() => {
     let alive = true;
@@ -895,13 +906,13 @@ function LivePreview() {
       clearTimeout(timer);
     };
   }, []);
-  if (!shot) return <Empty title="Looking…" icon="🖥" />;
-  if (!shot.image) return <Empty title="Can't see the computer" icon="🖥">{shot.reason}</Empty>;
+  if (!shot) return <Empty title={t("stage.looking")} icon="🖥" />;
+  if (!shot.image) return <Empty title={t("stage.cantSeeComputer")} icon="🖥">{shot.reason}</Empty>;
   return (
     <div className="relative min-h-0 flex-1 bg-black">
       <img src={shot.image} alt="" className="h-full w-full object-contain" />
       <div className="absolute left-3 top-3 rounded-md bg-black/70 px-2.5 py-1 text-xs text-white">
-        {shot.working ? `${shot.agent} is working in the background · ${shot.where}` : "Nobody is working on the computer right now"}
+        {shot.working ? t("stage.workingInBackground", { agent: shot.agent ?? "", where: shot.where ?? "" }) : t("stage.nobodyWorking")}
       </div>
     </div>
   );
@@ -910,6 +921,7 @@ function LivePreview() {
 /** The sandbox desktop itself, live: use it with your own mouse and keyboard alongside
  * the agents, or just watch. It starts when shown. */
 function SandboxDesktop({ watch }: { watch: boolean }) {
+  const t = useT();
   const [state, setState] = useState<"starting" | "ready" | string>("starting");
   useEffect(() => {
     let alive = true;
@@ -922,12 +934,13 @@ function SandboxDesktop({ watch }: { watch: boolean }) {
       alive = false;
     };
   }, []);
-  if (state === "starting") return <Empty title="Starting the desktop…" icon="🖥" />;
-  if (state !== "ready") return <Empty title="Can't start the desktop" icon="🖥">{state}</Empty>;
-  return <iframe key={String(watch)} title="Sandbox desktop" src={api.sandboxDesktopUrl(watch)} className="min-h-0 w-full flex-1 border-0 bg-black" allow="clipboard-read; clipboard-write" />;
+  if (state === "starting") return <Empty title={t("stage.startingDesktop")} icon="🖥" />;
+  if (state !== "ready") return <Empty title={t("stage.cantStartDesktop")} icon="🖥">{state}</Empty>;
+  return <iframe key={String(watch)} title={t("stage.sandboxDesktopTitle")} src={api.sandboxDesktopUrl(watch)} className="min-h-0 w-full flex-1 border-0 bg-black" allow="clipboard-read; clipboard-write" />;
 }
 
 function ComputerView() {
+  const t = useT();
   const [watch, setWatch] = useState(false);
   const [status, setStatus] = useState<ComputerStatus | null>(null);
   const at = useOrg((s) => s.computerAt);
@@ -935,22 +948,22 @@ function ComputerView() {
     api.computer().then(setStatus).catch(() => setStatus(null));
   }, [at]);
   const backend = status?.backend;
-  const label = status?.backends.find((b) => b.id === backend)?.label ?? "Computer";
+  const label = status?.backends.find((b) => b.id === backend)?.label ?? t("stage.computer");
   return (
     <div className="flex h-full flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-line bg-panel px-4 py-2 text-sm">
-        <span className="font-semibold">{backend === "off" ? "Computer use is off" : label}</span>
-        {status?.paused && <Badge tone="warn">paused</Badge>}
-        {status?.inUseBy && <Badge tone="accent">in use by {status.inUseBy}</Badge>}
+        <span className="font-semibold">{backend === "off" ? t("stage.computerUseOff") : label}</span>
+        {status?.paused && <Badge tone="warn">{t("stage.paused")}</Badge>}
+        {status?.inUseBy && <Badge tone="accent">{t("stage.inUseBy", { name: status.inUseBy })}</Badge>}
         {backend === "cua" && (
-          <label className="ml-auto flex items-center gap-2 text-xs text-ink-2" title="Watching only: your mouse and keyboard don't reach the desktop">
-            Just watch
+          <label className="ml-auto flex items-center gap-2 text-xs text-ink-2" title={t("stage.justWatchTitle")}>
+            {t("stage.justWatch")}
             <Toggle checked={watch} onChange={setWatch} />
           </label>
         )}
         {backend === "native" && status?.inUseBy && (
           <Button size="sm" className="ml-auto" variant="danger" onClick={() => void api.computerStop().then(setStatus)}>
-            Stop
+            {t("stage.stop")}
           </Button>
         )}
       </div>
@@ -959,12 +972,12 @@ function ComputerView() {
       ) : backend === "driver" ? (
         <LivePreview />
       ) : backend === "native" ? (
-        <Empty title="Agents use this computer itself" icon="🖥">
-          You see what they do on your own screen. Take it back any time: move the mouse into the top-left corner, or press Stop.
+        <Empty title={t("stage.agentsUseComputer")} icon="🖥">
+          {t("stage.agentsUseComputerBody")}
         </Empty>
       ) : (
-        <Empty title="Agents can't use a computer yet" icon="🖥">
-          Choose one in Settings → This computer (this computer, or the sandbox desktop pack), then grant agents the computer_* tools on the Team tab.
+        <Empty title={t("stage.noComputerYet")} icon="🖥">
+          {t("stage.noComputerYetBody")}
         </Empty>
       )}
     </div>

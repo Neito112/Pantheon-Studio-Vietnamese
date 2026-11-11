@@ -182,6 +182,8 @@ def main() -> None:
     ap.add_argument("--check", action="store_true", help="install and start what was built")
     ap.add_argument("--release", action="store_true",
                     help="upload to the GitHub release v<version> (created as a draft if missing)")
+    ap.add_argument("--repo", default="Neito112/Pantheon-Studio-Vietnamese",
+                    help="GitHub repository for release assets and updater URLs")
     a = ap.parse_args()
 
     v = version()
@@ -204,17 +206,17 @@ def main() -> None:
     release = dist / "release"
     shutil.rmtree(release, ignore_errors=True)
     run([sys.executable, "scripts/release_files.py", str(dist / "artifacts"), str(release),
-         "--tag", f"v{v}", "--repo", "adityaagarw/Pantheon"])
+         "--tag", f"v{v}", "--repo", a.repo])
 
     if a.release:
         say(f"Uploading to the GitHub release v{v}")
         files = [str(f) for f in sorted(release.iterdir())]
-        exists = subprocess.run(["gh", "release", "view", f"v{v}"], cwd=ROOT,
+        exists = subprocess.run(["gh", "release", "view", f"v{v}", "--repo", a.repo], cwd=ROOT,
                                 capture_output=True).returncode == 0
         if exists:
-            run(["gh", "release", "upload", f"v{v}", *files, "--clobber"])
+            run(["gh", "release", "upload", f"v{v}", *files, "--repo", a.repo, "--clobber"])
         else:
-            run(["gh", "release", "create", f"v{v}", *files, "--draft",
+            run(["gh", "release", "create", f"v{v}", *files, "--repo", a.repo, "--draft",
                  "--title", f"Pantheon Studio {v}", "--generate-notes"])
         print("Publish the draft on GitHub when you're happy with it.")
 

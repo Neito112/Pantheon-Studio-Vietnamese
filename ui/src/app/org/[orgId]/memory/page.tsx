@@ -4,14 +4,15 @@ import { useShallow } from "zustand/react/shallow";
 import { useCallback, useEffect, useState } from "react";
 import { AgentAvatar } from "@/components/agent";
 import { Badge, Button, cx, Empty, ErrorNote, Input, Select, Spinner, Textarea } from "@/components/ui";
+import { formatRelative, useLocale, useT } from "@/i18n";
 import { api } from "@/lib/api";
-import { timeAgo } from "@/lib/format";
 import type { MemoryItem } from "@/lib/types";
 import { useOrg } from "@/store/org";
 
 type Filter = { kind: "all" } | { kind: "shared" } | { kind: "agent"; id: string };
 
 export default function MemoryPage() {
+  const t = useT();
   const orgId = useOrg((s) => s.orgId)!;
   const agents = useOrg(useShallow((s) => Object.values(s.agents).filter((a) => !a.isSupervisor)));
   const byId = useOrg((s) => s.agents);
@@ -40,9 +41,9 @@ export default function MemoryPage() {
   return (
     <div className="flex h-full">
       <aside className="hidden w-64 shrink-0 overflow-y-auto border-r border-line bg-panel p-3 md:block">
-        <FilterItem active={filter.kind === "all"} onClick={() => setFilter({ kind: "all" })} label="Everything" count={total} />
-        <FilterItem active={filter.kind === "shared"} onClick={() => setFilter({ kind: "shared" })} label="Shared with the org" count={counts.shared ?? 0} />
-        <div className="mb-1 mt-4 px-2 text-[11px] font-medium uppercase tracking-wider text-ink-3">Private to</div>
+        <FilterItem active={filter.kind === "all"} onClick={() => setFilter({ kind: "all" })} label={t("org.memory.everything")} count={total} />
+        <FilterItem active={filter.kind === "shared"} onClick={() => setFilter({ kind: "shared" })} label={t("org.memory.sharedWithOrg")} count={counts.shared ?? 0} />
+        <div className="mb-1 mt-4 px-2 text-[11px] font-medium uppercase tracking-wider text-ink-3">{t("org.memory.privateTo")}</div>
         {agents.map((a) => (
           <FilterItem
             key={a.id}
@@ -56,14 +57,14 @@ export default function MemoryPage() {
       </aside>
       <section className="flex min-w-0 flex-1 flex-col">
         <div className="flex flex-wrap items-center gap-2 border-b border-line px-4 py-3">
-          <Input className="min-w-0 flex-1 md:max-w-md" placeholder="Search by meaning, e.g. “what does the user like?”" value={q} onChange={(e) => setQ(e.target.value)} />
+          <Input className="min-w-0 flex-1 md:max-w-md" placeholder={t("org.memory.searchPlaceholder")} value={q} onChange={(e) => setQ(e.target.value)} />
           <Select
             className="w-40 md:hidden"
             value={filter.kind === "agent" ? filter.id : filter.kind}
             onChange={(e) => setFilter(e.target.value === "all" || e.target.value === "shared" ? { kind: e.target.value } : { kind: "agent", id: e.target.value })}
           >
-            <option value="all">Everything</option>
-            <option value="shared">Shared</option>
+            <option value="all">{t("org.memory.everything")}</option>
+            <option value="shared">{t("org.memory.shared")}</option>
             {agents.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
@@ -71,11 +72,11 @@ export default function MemoryPage() {
             ))}
           </Select>
           <Button variant="primary" onClick={() => setAdding(true)}>
-            + Add
+            + {t("common.add")}
           </Button>
           {sem && (
             <span className="ml-auto text-xs text-ink-3" title={sem.error ?? sem.model}>
-              {sem.mode === "off" || sem.error ? "keyword search" : `semantic search · ${sem.model.split("/").pop()}`}
+              {sem.mode === "off" || sem.error ? t("org.memory.keywordSearch") : t("org.memory.semanticSearch", { model: sem.model.split("/").pop() ?? sem.model })}
             </span>
           )}
         </div>
@@ -84,8 +85,8 @@ export default function MemoryPage() {
           {!data ? (
             <Spinner />
           ) : data.items.length === 0 ? (
-            <Empty title={query ? "Nothing matches" : "No memories yet"} icon="🧠">
-              Agents save what matters with <code>remember</code> — decisions, facts, your preferences — and relevant memories are brought back automatically when a new message arrives. You can add and correct them here.
+            <Empty title={query ? t("org.memory.nothingMatches") : t("org.memory.noneYet")} icon="🧠">
+              {t("org.memory.emptyBodyBefore")} <code>remember</code> {t("org.memory.emptyBodyAfter")}
             </Empty>
           ) : (
             <div className="mx-auto max-w-3xl space-y-2">
@@ -114,6 +115,8 @@ function FilterItem({ active, onClick, label, count, icon }: { active: boolean; 
 }
 
 function MemoryCard({ m, owner, onChange }: { m: MemoryItem; owner?: import("@/lib/types").Agent; onChange: () => void }) {
+  const t = useT();
+  const locale = useLocale();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(m.content);
   const [confirm, setConfirm] = useState(false);
@@ -121,19 +124,19 @@ function MemoryCard({ m, owner, onChange }: { m: MemoryItem; owner?: import("@/l
   return (
     <div className="rounded-lg border border-line bg-panel p-3">
       <div className="mb-1.5 flex flex-wrap items-center gap-2 text-xs text-ink-3">
-        {m.shared ? <Badge tone="info">shared</Badge> : <span className="flex items-center gap-1.5">{owner && <AgentAvatar agent={owner} size={16} />}{owner?.name ?? "agent"}</span>}
-        {m.source === "user" && <Badge>added by you</Badge>}
-        <span>{timeAgo(m.updatedAt ?? m.createdAt)}</span>
-        {typeof m.score === "number" && m.score > 0 && <span title="similarity to your search">· {Math.round(m.score * 100)}% match</span>}
+        {m.shared ? <Badge tone="info">{t("org.memory.sharedBadge")}</Badge> : <span className="flex items-center gap-1.5">{owner && <AgentAvatar agent={owner} size={16} />}{owner?.name ?? "agent"}</span>}
+        {m.source === "user" && <Badge>{t("org.memory.addedByYou")}</Badge>}
+        <span>{formatRelative(locale, m.updatedAt ?? m.createdAt)}</span>
+        {typeof m.score === "number" && m.score > 0 && <span title={t("org.memory.matchTitle")}>{t("org.memory.matchPercent", { percent: Math.round(m.score * 100) })}</span>}
         <span className="ml-auto flex gap-1">
           {!editing && (
             <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-              Edit
+              {t("common.edit")}
             </Button>
           )}
           {confirm ? (
             <Button size="sm" variant="danger" onClick={() => api.deleteMemory(m.id).then(onChange)}>
-              Delete
+              {t("common.delete")}
             </Button>
           ) : (
             <Button size="sm" variant="ghost" onClick={() => setConfirm(true)}>
@@ -157,10 +160,10 @@ function MemoryCard({ m, owner, onChange }: { m: MemoryItem; owner?: import("@/l
                   .catch((e: Error) => setError(e.message))
               }
             >
-              Save
+              {t("common.save")}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => (setEditing(false), setText(m.content))}>
-              Cancel
+              {t("common.cancel")}
             </Button>
           </div>
         </div>
@@ -172,25 +175,26 @@ function MemoryCard({ m, owner, onChange }: { m: MemoryItem; owner?: import("@/l
 }
 
 function AddMemory({ orgId, agents, preset, onDone }: { orgId: string; agents: import("@/lib/types").Agent[]; preset: string; onDone: () => void }) {
+  const t = useT();
   const [content, setContent] = useState("");
   const [who, setWho] = useState(preset);
   const [error, setError] = useState<string | null>(null);
   return (
     <div className="mx-auto mb-4 max-w-3xl space-y-2 rounded-lg border border-accent/40 bg-accent/5 p-3">
-      <Textarea rows={3} autoFocus value={content} onChange={(e) => setContent(e.target.value)} placeholder="Something the agents should know, e.g. “I learn best with visuals and short quizzes.”" />
+      <Textarea rows={3} autoFocus value={content} onChange={(e) => setContent(e.target.value)} placeholder={t("org.memory.addPlaceholder")} />
       <div className="flex flex-wrap items-center gap-2">
         <Select className="w-56" value={who} onChange={(e) => setWho(e.target.value)}>
-          <option value="">Shared with everyone</option>
+          <option value="">{t("org.memory.sharedWithEveryone")}</option>
           {agents.map((a) => (
             <option key={a.id} value={a.id}>
-              Only {a.name}
+              {t("org.memory.onlyAgent", { name: a.name })}
             </option>
           ))}
         </Select>
         <ErrorNote error={error} />
         <span className="ml-auto flex gap-2">
           <Button variant="ghost" onClick={onDone}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button
             variant="primary"
@@ -202,7 +206,7 @@ function AddMemory({ orgId, agents, preset, onDone }: { orgId: string; agents: i
                 .catch((e: Error) => setError(e.message))
             }
           >
-            Save
+            {t("common.save")}
           </Button>
         </span>
       </div>

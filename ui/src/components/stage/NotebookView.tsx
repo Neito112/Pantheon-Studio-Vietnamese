@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Markdown } from "@/components/Markdown";
 import { Badge, Button, cx } from "@/components/ui";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import type { NotebookCell, NotebookData, NotebookOutput } from "@/lib/types";
 import { useOrg } from "@/store/org";
 
 /** A Python notebook shared with agents; code runs in the sandbox desktop. */
 export default function NotebookView({ docId, onView }: { docId: string; onView?: (text: string) => void }) {
+  const t = useT();
   const [cells, setCells] = useState<NotebookCell[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [focus, setFocus] = useState<string | null>(null);
@@ -37,8 +39,8 @@ export default function NotebookView({ docId, onView }: { docId: string; onView?
   useEffect(() => {
     if (!cells || !focus) return;
     const i = cells.findIndex((c) => c.id === focus);
-    if (i >= 0) onView?.(`working in cell ${i + 1} of ${cells.length}`);
-  }, [focus, cells, onView]);
+    if (i >= 0) onView?.(t("stage.nb.workingInCell", { cell: i + 1, total: cells.length }));
+  }, [focus, cells, onView, t]);
 
   const act = (p: Promise<unknown>) => p.catch((e) => setError((e as Error).message));
   const flush = async (id: string) => {
@@ -65,28 +67,28 @@ export default function NotebookView({ docId, onView }: { docId: string; onView?
   };
 
   if (error && !cells) return <div className="p-6 text-sm text-bad">{error}</div>;
-  if (!cells) return <div className="p-6 text-sm text-ink-3">Loading notebook…</div>;
+  if (!cells) return <div className="p-6 text-sm text-ink-3">{t("stage.nb.loading")}</div>;
   const running = cells.some((c) => c.status === "running");
   return (
     <div className="flex h-full min-h-0 flex-col bg-bg">
       <div className="flex flex-wrap items-center gap-1.5 border-b border-line bg-panel px-3 py-1.5">
         <Button size="sm" variant="primary" onClick={() => void runAll()} disabled={running}>
-          ▶ Run all
+          {t("stage.nb.runAll")}
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => void act(api.notebookKernel(docId, "interrupt"))} disabled={!running} title="Stop the running cell">
-          ■ Stop
+        <Button size="sm" variant="ghost" onClick={() => void act(api.notebookKernel(docId, "interrupt"))} disabled={!running} title={t("stage.nb.stopCell")}>
+          {t("common.stop")}
         </Button>
-        <Button size="sm" variant="ghost" onClick={() => void act(api.notebookKernel(docId, "restart"))} title="Forget all variables">
-          ⟲ Restart
+        <Button size="sm" variant="ghost" onClick={() => void act(api.notebookKernel(docId, "restart"))} title={t("stage.nb.forgetVariables")}>
+          {t("stage.nb.restart")}
         </Button>
         <span className="mx-1 h-5 w-px bg-line-2" />
         <Button size="sm" variant="ghost" onClick={() => void act(api.addNotebookCell(docId, { type: "code" }))}>
-          + Code
+          {t("stage.nb.addCode")}
         </Button>
         <Button size="sm" variant="ghost" onClick={() => void act(api.addNotebookCell(docId, { type: "markdown" }))}>
-          + Text
+          {t("stage.nb.addText")}
         </Button>
-        <span className="ml-auto text-xs text-ink-3">Python in the sandbox desktop · files in ~/shared</span>
+        <span className="ml-auto text-xs text-ink-3">{t("stage.nb.sandboxNote")}</span>
         <a href={api.stageDocExportUrl(docId)} className="text-xs text-ink-2 hover:text-ink" download>
           .ipynb ↓
         </a>
@@ -130,6 +132,7 @@ function Cell(props: {
   onDelete: () => void;
 }) {
   const { cell, index } = props;
+  const t = useT();
   const [editing, setEditing] = useState(cell.type === "code" || !cell.source);
   const area = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
@@ -154,7 +157,7 @@ function Cell(props: {
             value={cell.source}
             spellCheck={false}
             rows={1}
-            placeholder={cell.type === "code" ? "Python… (Shift+Enter runs)" : "Text (Markdown)…"}
+            placeholder={cell.type === "code" ? t("stage.nb.codePlaceholder") : t("stage.nb.textPlaceholder")}
             onFocus={props.onFocus}
             onBlur={() => {
               props.onBlur();
@@ -181,7 +184,7 @@ function Cell(props: {
             )}
           />
         ) : (
-          <div className="cursor-text rounded-md px-3 py-1 text-sm" onDoubleClick={() => setEditing(true)} title="Double-click to edit">
+          <div className="cursor-text rounded-md px-3 py-1 text-sm" onDoubleClick={() => setEditing(true)} title={t("stage.nb.doubleClickEdit")}>
             <Markdown>{cell.source}</Markdown>
           </div>
         )}
@@ -195,14 +198,14 @@ function Cell(props: {
         <div className="mt-1 flex items-center gap-1 text-[11px] text-ink-3 opacity-0 transition-opacity group-hover:opacity-100">
           {cell.type === "code" && (
             <button className="hover:text-ink cursor-pointer" onClick={props.onRun}>
-              ▶ run
+              {t("stage.nb.run")}
             </button>
           )}
           <button className="hover:text-ink cursor-pointer" onClick={() => props.onAddBelow("code")}>
-            + code
+            {t("stage.nb.addCodeBelow")}
           </button>
           <button className="hover:text-ink cursor-pointer" onClick={() => props.onAddBelow("markdown")}>
-            + text
+            {t("stage.nb.addTextBelow")}
           </button>
           <button className="hover:text-ink cursor-pointer" disabled={index === 0} onClick={() => props.onMove(index)}>
             ↑
@@ -211,10 +214,10 @@ function Cell(props: {
             ↓
           </button>
           <button className="hover:text-ink cursor-pointer" onClick={props.onToggle}>
-            {cell.type === "code" ? "→ text" : "→ code"}
+            {cell.type === "code" ? t("stage.nb.toText") : t("stage.nb.toCode")}
           </button>
           <button className="hover:text-bad cursor-pointer" onClick={props.onDelete}>
-            delete
+            {t("stage.nb.delete")}
           </button>
           {cell.by && cell.by !== "user" && <Badge className="ml-auto">{cell.by}</Badge>}
         </div>
@@ -224,8 +227,9 @@ function Cell(props: {
 }
 
 function Output({ o }: { o: NotebookOutput }) {
+  const t = useT();
   if (o.type === "image") {
-    return <img src={`data:image/png;base64,${o.data}`} alt="chart" className="max-w-full rounded bg-white" />;
+    return <img src={`data:image/png;base64,${o.data}`} alt={t("stage.nb.chartAlt")} className="max-w-full rounded bg-white" />;
   }
   if (o.type === "error") {
     return (
@@ -249,6 +253,7 @@ function Output({ o }: { o: NotebookOutput }) {
 
 /** HTML output (e.g. a DataFrame) in a frame where no script can run. */
 function HtmlOutput({ html }: { html: string }) {
+  const t = useT();
   const [height, setHeight] = useState(60);
   const doc = `<!doctype html><html><head><meta charset="utf-8"><meta name="color-scheme" content="dark"><style>
     html,body{margin:0;font:12px ui-monospace,monospace;color:#d6dae3;background:#11141b}
@@ -257,7 +262,7 @@ function HtmlOutput({ html }: { html: string }) {
   </style></head><body>${html}</body></html>`;
   return (
     <iframe
-      title="output"
+      title={t("stage.nb.outputTitle")}
       sandbox="allow-same-origin"
       srcDoc={doc}
       className="w-full rounded border-0"

@@ -4,6 +4,7 @@
 
 import { useShallow } from "zustand/react/shallow";
 import { useEffect, useState, type ReactNode } from "react";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import { useOrg } from "@/store/org";
 import { liveFor } from "@/store/reduce";
@@ -42,6 +43,7 @@ export function MetaChat({
 }) {
   const agent = useOrg((s) => s.agents[agentId]);
   const agents = useOrg((s) => s.agents);
+  const t = useT();
   const live = useOrg(useShallow((s) => liveFor(s, agentId)));
   const approvals = useOrg(useShallow((s) => Object.values(s.approvals).filter((a) => a.agentId === agentId)));
   const messages = useDmMessages(agentId);
@@ -71,19 +73,19 @@ export function MetaChat({
         <div className="ml-auto flex items-center gap-3">
           {(live.status === "working" || live.status === "awaiting_approval") && (
             <Button size="sm" variant="danger" onClick={() => api.stopAgent(agentId)}>
-              ■ Stop
+              {t("meta.chat.stop")}
             </Button>
           )}
           {agent && (
-            <Button size="sm" variant="ghost" title={`Choose what runs ${name}: Pantheon with a model, or an agent such as Claude Code, Codex or Hermes`} onClick={() => setModelOpen(true)}>
-              <span className="hidden sm:inline">Runs on: </span>
-              <span className="max-w-32 truncate">{runsOn(agent, kinds)}</span>
+            <Button size="sm" variant="ghost" title={t("meta.chat.runsOnTitle", { name })} onClick={() => setModelOpen(true)}>
+              <span className="hidden sm:inline">{t("meta.chat.runsOnLabel")}</span>
+              <span className="max-w-32 truncate">{runsOn(agent, kinds, t)}</span>
             </Button>
           )}
-          <Toggle checked={speakOn || liveOn} onChange={setSpeakOn} label="Speak" />
+          <Toggle checked={speakOn || liveOn} onChange={setSpeakOn} label={t("meta.chat.speak")} />
           {agent?.metaRole && (
-            <Button size="sm" variant="ghost" title={`Start ${name} over with its original settings`} onClick={() => setResetOpen(true)}>
-              Reset
+            <Button size="sm" variant="ghost" title={t("meta.chat.resetTitle", { name })} onClick={() => setResetOpen(true)}>
+              {t("meta.chat.reset")}
             </Button>
           )}
           <Button size="sm" variant="ghost" className="lg:hidden" onClick={onShowSide}>
@@ -123,7 +125,7 @@ export function MetaChat({
       {live.status === "working" && (
         <div className="border-t border-line bg-panel/50 px-5 py-2 font-mono text-xs text-ink-3">
           <LiveThinking text={live.thinking} />
-          {live.tool ? `🛠 ${live.tool}…` : live.stream ? `✎ …${live.stream.slice(-160)}` : "thinking…"}
+          {live.tool ? `🛠 ${live.tool}…` : live.stream ? `✎ …${live.stream.slice(-160)}` : t("meta.chat.thinking")}
         </div>
       )}
       <Composer
@@ -141,9 +143,9 @@ export function MetaChat({
 }
 
 /** What the header says a meta agent runs on: its model, or the agent that runs it. */
-function runsOn(agent: Agent, kinds: AgentKind[]): string {
+function runsOn(agent: Agent, kinds: AgentKind[], t: (key: string, params?: Record<string, string | number>) => string): string {
   const kindId = agent.kind ?? "llm";
-  if (kindId === "llm") return agent.model?.model || "default";
+  if (kindId === "llm") return agent.model?.model || t("meta.chat.runsOnDefault");
   const kind = kinds.find((k) => k.id === kindId);
   const preset = kind?.presets.find((p) => p.id === agent.runner?.preset);
   return preset?.label ?? kind?.label ?? kindId;
@@ -166,6 +168,7 @@ function ModelDialog({ open, agent, onClose }: { open: boolean; agent: Agent; on
     }
   }
   const llm = (draft.kind ?? "llm") === "llm";
+  const t = useT();
   const save = async () => {
     setBusy(true);
     setError(null);
@@ -183,10 +186,10 @@ function ModelDialog({ open, agent, onClose }: { open: boolean; agent: Agent; on
     <Modal
       open={open}
       onClose={onClose}
-      title={`What runs ${agent.name}`}
+      title={t("meta.model.title", { name: agent.name })}
       footer={
         <Button variant="primary" loading={busy} onClick={save}>
-          Save
+          {t("common.save")}
         </Button>
       }
     >
@@ -195,25 +198,20 @@ function ModelDialog({ open, agent, onClose }: { open: boolean; agent: Agent; on
           value={tab}
           onChange={setTab}
           items={[
-            { value: "kind", label: "Kind" },
-            { value: "model", label: "Model" },
+            { value: "kind", label: t("meta.model.tabKind") },
+            { value: "model", label: t("meta.model.tabModel") },
           ]}
         />
         {tab === "kind" && (
           <>
-            <p className="text-sm text-ink-2">
-              {agent.name} keeps its instructions, its tools and its chat with you whatever runs it. Another agent, such as Claude Code, Codex or Hermes, gets {agent.name}&apos;s tools through
-              Pantheon&apos;s MCP bridge.
-            </p>
+            <p className="text-sm text-ink-2">{t("meta.model.kindHelp", { name: agent.name })}</p>
             <KindTab draft={draft} exclude={["human"]} onChange={(kind, runner) => setDraft((d) => ({ ...d, kind, runner }))} />
           </>
         )}
         {tab === "model" && (
           <>
             <p className="text-sm text-ink-2">
-              {llm
-                ? `${agent.name} uses the default provider unless you pick one here. A strong model with reliable tool calling works best: ${agent.name} builds and changes organizations for you.`
-                : `${agent.name} runs on another agent, which picks its own model on the Kind tab. Pantheon still uses this model for ${agent.name}'s quick jobs, such as drafting a new organization.`}
+              {llm ? t("meta.model.llmHelp", { name: agent.name }) : t("meta.model.otherHelp", { name: agent.name })}
             </p>
             <ModelSettings model={draft.model ?? {}} onChange={(model) => setDraft((d) => ({ ...d, model }))} />
           </>
@@ -226,12 +224,13 @@ function ModelDialog({ open, agent, onClose }: { open: boolean; agent: Agent; on
 
 /** Page shell: chat on the left, a side panel (drawer on phones) on the right. */
 export function MetaLayout({ chat, side, sideOpen, onCloseSide }: { chat: ReactNode; side: ReactNode; sideOpen: boolean; onCloseSide: () => void }) {
+  const t = useT();
   return (
     <div className="flex h-full">
       <section className="flex min-w-0 flex-1 flex-col">{chat}</section>
       <aside className={`flex-col border-l border-line bg-panel lg:static lg:flex lg:w-[440px] lg:shrink-0 ${sideOpen ? "fixed inset-0 z-30 flex" : "hidden"}`}>
         <button onClick={onCloseSide} className="border-b border-line px-3 py-2 text-left text-sm text-ink-2 hover:text-ink lg:hidden cursor-pointer">
-          ‹ Back
+          {t("meta.chat.back")}
         </button>
         {side}
       </aside>
@@ -244,6 +243,7 @@ function ResetDialog({ open, role, name, onClose }: { open: boolean; role: "zeus
   const [forget, setForget] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const t = useT();
   const reset = async () => {
     setBusy(true);
     setError(null);
@@ -257,20 +257,17 @@ function ResetDialog({ open, role, name, onClose }: { open: boolean; role: "zeus
     }
   };
   return (
-    <Modal open={open} onClose={onClose} title={`Reset ${name}?`}>
+    <Modal open={open} onClose={onClose} title={t("meta.reset.title", { name })}>
       <div className="space-y-3 text-sm">
-        <p className="text-ink-2">
-          This stops what {name} is doing, deletes your chat with {name}, clears its context, and puts its name, instructions, tools, kind, model and
-          limits back to the originals.
-        </p>
-        <Toggle checked={forget} onChange={setForget} label={`Also forget ${name}'s long-term memories`} />
+        <p className="text-ink-2">{t("meta.reset.body", { name })}</p>
+        <Toggle checked={forget} onChange={setForget} label={t("meta.reset.forget", { name })} />
         <ErrorNote error={error} />
         <div className="flex justify-end gap-2">
           <Button variant="ghost" onClick={onClose}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button variant="danger" loading={busy} onClick={() => void reset()}>
-            Reset {name}
+            {t("meta.reset.action", { name })}
           </Button>
         </div>
       </div>

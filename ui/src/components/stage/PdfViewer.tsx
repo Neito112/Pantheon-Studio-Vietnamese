@@ -5,6 +5,7 @@ import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/TextLayer.css";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import { Button, cx } from "@/components/ui";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import type { PdfData, PdfHighlight } from "@/lib/types";
 import { useOrg } from "@/store/org";
@@ -16,6 +17,7 @@ const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt
 
 /** A PDF read together: the page in view, agents' highlights, and the user's own. */
 export default function PdfViewer({ docId, onView }: { docId: string; onView?: (text: string) => void }) {
+  const t = useT();
   const [data, setData] = useState<PdfData | null>(null);
   const [pages, setPages] = useState(0);
   const [page, setPage] = useState(1);
@@ -55,8 +57,8 @@ export default function PdfViewer({ docId, onView }: { docId: string; onView?: (
   }, []);
 
   useEffect(() => {
-    onView?.(`on page ${page} of ${pages || "?"}${selection ? `, with "${selection.slice(0, 200)}" selected` : ""}`);
-  }, [page, pages, selection, onView]);
+    onView?.(t("stage.pdf.onPage", { page, total: pages || "?" }) + (selection ? t("stage.pdf.withSelected", { selection: selection.slice(0, 200) }) : ""));
+  }, [page, pages, selection, onView, t]);
 
   // Highlights on this page, as one string so the text renderer only changes when they do.
   const markKey = (data?.highlights ?? [])
@@ -87,7 +89,7 @@ export default function PdfViewer({ docId, onView }: { docId: string; onView?: (
   };
 
   if (error) return <div className="p-6 text-sm text-bad">{error}</div>;
-  if (!data) return <div className="p-6 text-sm text-ink-3">Loading PDF…</div>;
+  if (!data) return <div className="p-6 text-sm text-ink-3">{t("stage.pdf.loading")}</div>;
   const highlights = data.highlights ?? [];
   return (
     <div className="flex h-full min-h-0">
@@ -97,20 +99,20 @@ export default function PdfViewer({ docId, onView }: { docId: string; onView?: (
             ‹
           </Button>
           <span className="text-ink-2">
-            Page{" "}
+            {t("stage.pdf.page")}{" "}
             <input
               className="w-12 rounded border border-line bg-panel-2 px-1 text-center"
               value={page}
               onChange={(e) => Number(e.target.value) && go(Number(e.target.value))}
             />{" "}
-            of {pages || "…"}
+            {t("stage.pdf.of", { count: pages || "…" })}
           </span>
           <Button size="sm" variant="ghost" disabled={!!pages && page >= pages} onClick={() => go(page + 1)}>
             ›
           </Button>
           {selection && (
             <Button size="sm" variant="secondary" onClick={() => void highlight()}>
-              Highlight selection
+              {t("stage.pdf.highlightSelection")}
             </Button>
           )}
         </div>
@@ -122,8 +124,8 @@ export default function PdfViewer({ docId, onView }: { docId: string; onView?: (
           <Document
             file={api.stageDocExportUrl(docId)}
             onLoadSuccess={(pdf) => setPages(pdf.numPages)}
-            onLoadError={(e) => setError(`Couldn't open the PDF: ${e.message}`)}
-            loading={<div className="p-6 text-sm text-white/70">Loading PDF…</div>}
+            onLoadError={(e) => setError(t("stage.pdf.cantOpen", { error: e.message }))}
+            loading={<div className="p-6 text-sm text-white/70">{t("stage.pdf.loading")}</div>}
           >
             <Page pageNumber={page} width={width} customTextRenderer={renderText} className="mx-auto w-fit shadow-2xl" />
           </Document>
@@ -132,9 +134,9 @@ export default function PdfViewer({ docId, onView }: { docId: string; onView?: (
       {highlights.length > 0 && (
         <aside className="hidden w-64 shrink-0 overflow-y-auto border-l border-line bg-panel p-3 lg:block">
           <div className="mb-2 flex items-center text-xs font-medium uppercase tracking-wider text-ink-3">
-            Highlights
+            {t("stage.pdf.highlights")}
             <button className="ml-auto normal-case tracking-normal text-ink-3 hover:text-ink cursor-pointer" onClick={() => void api.pdfView(docId, { clear: true }).then((d) => setData(d.data as PdfData))}>
-              clear
+              {t("stage.pdf.clear")}
             </button>
           </div>
           {highlights.map((h: PdfHighlight) => (
@@ -144,7 +146,7 @@ export default function PdfViewer({ docId, onView }: { docId: string; onView?: (
               className={cx("mb-2 block w-full rounded-md border p-2 text-left text-xs cursor-pointer", h.page === page ? "border-warn/60 bg-warn/10" : "border-line hover:bg-panel-2")}
             >
               <div className="mb-1 text-[11px] text-ink-3">
-                p. {h.page} · {h.by}
+                {t("stage.pdf.pageOf", { page: h.page, by: h.by })}
               </div>
               <div className="line-clamp-3 text-ink">“{h.text}”</div>
               {h.note && <div className="mt-1 text-ink-2">{h.note}</div>}

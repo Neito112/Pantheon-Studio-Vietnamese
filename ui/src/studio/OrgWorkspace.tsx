@@ -15,6 +15,7 @@ import { motion } from "motion/react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router";
 import { InboxButton } from "@/components/InboxDrawer";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import { useOrg, useOrgConnection } from "@/store/org";
 import { Icon } from "./icons";
@@ -125,6 +126,7 @@ const activeKey = (orgId: string) => `studio.tab.${orgId}`;
 /** Tabs: a tab for every pane, and the chosen one fills the workspace. Panes stay alive
  * once opened, so switching back is instant and keeps their place. */
 function TabsWorkspace({ onView }: { onView: (v: ViewMode) => void }) {
+  const t = useT();
   const { orgId } = useParams<{ orgId: string }>();
   useOrgConnection(orgId!);
   const [active, setActive] = useState(() => {
@@ -162,11 +164,11 @@ function TabsWorkspace({ onView }: { onView: (v: ViewMode) => void }) {
           <button
             key={p.id}
             onClick={() => show(p.id)}
-            title={p.hint}
+            title={t(`shell.pane.${p.id}.hint`)}
             className={`flex shrink-0 items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[12.5px] transition-colors ${p.id === active ? "border-[var(--st-edge-2)] bg-[rgba(157,140,255,0.12)] text-[var(--st-ink)]" : "border-transparent text-[var(--st-ink-3)] hover:bg-white/[0.04] hover:text-[var(--st-ink-2)]"}`}
           >
             <Icon name={p.icon} size={14} />
-            {p.title}
+            {t(`shell.pane.${p.id}.title`)}
           </button>
         ))}
       </div>
@@ -187,6 +189,7 @@ function TabsWorkspace({ onView }: { onView: (v: ViewMode) => void }) {
 
 /** Phones: one pane at a time, chosen from a strip of tabs; no docking, shelf or timeline. */
 function PhoneWorkspace() {
+  const t = useT();
   const { orgId } = useParams<{ orgId: string }>();
   useOrgConnection(orgId!);
   const [pane, setPane] = useState(() => {
@@ -221,7 +224,7 @@ function PhoneWorkspace() {
             className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12.5px] ${p.id === def.id ? "bg-white/[0.08] text-[var(--st-ink)]" : "text-[var(--st-ink-3)]"}`}
           >
             <Icon name={p.icon} size={14} />
-            {p.title}
+            {t(`shell.pane.${p.id}.title`)}
           </button>
         ))}
       </div>
@@ -233,6 +236,7 @@ function PhoneWorkspace() {
 }
 
 function DockWorkspace({ onView }: { onView: (v: ViewMode) => void }) {
+  const t = useT();
   const { orgId } = useParams<{ orgId: string }>();
   useOrgConnection(orgId!);
   const setDock = useStudio((s) => s.setDock);
@@ -240,6 +244,15 @@ function DockWorkspace({ onView }: { onView: (v: ViewMode) => void }) {
   const maximized = useStudio((s) => s.maximized !== null);
   const setMaximized = useStudio((s) => s.setMaximized);
   const [dock, setLocalDock] = useState<DockviewApi | null>(null);
+  useEffect(() => {
+    if (!dock) return;
+    const updateTitle = (panel: { id: string; api: { setTitle: (title: string) => void } }) => {
+      if (paneById(panel.id)) panel.api.setTitle(t(`shell.pane.${panel.id}.title`));
+    };
+    dock.panels.forEach(updateTitle);
+    const added = dock.onDidAddPanel(updateTitle);
+    return () => added.dispose();
+  }, [dock, t]);
   const waiting = useRef<string | null>(null); // a pane asked for before the dock was ready
   const [shelf, setShelf] = useState<string[]>([]);
   const shelfRef = useRef<string[]>([]);
@@ -383,6 +396,7 @@ function DockWorkspace({ onView }: { onView: (v: ViewMode) => void }) {
  * shelf and timeline step aside. Dockview can't maximize a floating group, so a floating
  * one docks back into the grid first. */
 function GroupActions(props: IDockviewHeaderActionsProps) {
+  const t = useT();
   const max = useStudio((s) => s.maximized === props.group.id);
   const setMaximized = useStudio((s) => s.setMaximized);
   const maximize = () => {
@@ -406,17 +420,17 @@ function GroupActions(props: IDockviewHeaderActionsProps) {
   const floating = props.api.location.type === "floating";
   return (
     <div className="flex h-full items-center gap-0.5 pr-1">
-      <button className={btn} title="Put away (on the shelf below)" onClick={() => props.activePanel?.api.close()}>
+      <button className={btn} title={t("shell.workspace.putAway")} onClick={() => props.activePanel?.api.close()}>
         <Icon name="collapse" size={14} style={{ transform: "rotate(-90deg)" }} />
       </button>
       {!floating && (
-        <button className={btn} title="Float" onClick={() => props.containerApi.addFloatingGroup(props.group)}>
+        <button className={btn} title={t("shell.workspace.float")} onClick={() => props.containerApi.addFloatingGroup(props.group)}>
           <Icon name="float" size={14} />
         </button>
       )}
       <button
         className={btn}
-        title={max ? "Restore" : "Maximize"}
+        title={max ? t("shell.workspace.restore") : t("shell.workspace.maximize")}
         onClick={max ? restore : maximize}
       >
         <Icon name={max ? "restore" : "maximize"} size={14} />
@@ -427,10 +441,11 @@ function GroupActions(props: IDockviewHeaderActionsProps) {
 
 /** Panes put away, one click from coming back. */
 function Shelf({ shelf, onOpen }: { shelf: string[]; onOpen: (pane: string) => void }) {
+  const t = useT();
   if (!shelf.length) return null;
   return (
     <div className="flex shrink-0 items-center gap-1.5 overflow-x-auto px-3 pb-1 pt-2">
-      <span className="mr-1 text-[10.5px] uppercase tracking-[0.12em] text-[var(--st-ink-3)]">Shelf</span>
+      <span className="mr-1 text-[10.5px] uppercase tracking-[0.12em] text-[var(--st-ink-3)]">{t("shell.workspace.shelf")}</span>
       {shelf.map((id) => {
         const def = paneById(id);
         if (!def) return null;
@@ -442,10 +457,10 @@ function Shelf({ shelf, onOpen }: { shelf: string[]; onOpen: (pane: string) => v
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: "spring", stiffness: 500, damping: 32 }}
             onClick={() => onOpen(id)}
-            title={def.hint}
+            title={t(`shell.pane.${def.id}.hint`)}
             className="flex shrink-0 items-center gap-1.5 rounded-full border border-[var(--st-edge)] bg-[var(--st-glass)] px-2.5 py-1 text-[12px] text-[var(--st-ink-2)] transition-colors hover:border-[var(--st-edge-2)] hover:text-[var(--st-ink)]"
           >
-            <Icon name={def.icon} size={13} /> {def.title}
+            <Icon name={def.icon} size={13} /> {t(`shell.pane.${def.id}.title`)}
           </motion.button>
         );
       })}
@@ -455,9 +470,10 @@ function Shelf({ shelf, onOpen }: { shelf: string[]; onOpen: (pane: string) => v
 
 /** The switch between windows and tabs. */
 function ViewSwitch({ view, onView }: { view: ViewMode; onView: (v: ViewMode) => void }) {
+  const t = useT();
   const opts: { v: ViewMode; label: string; hint: string }[] = [
-    { v: "windows", label: "Windows", hint: "Panes side by side: drag, resize, float" },
-    { v: "tabs", label: "Tabs", hint: "One pane at a time, filling the view" },
+    { v: "windows", label: t("shell.workspace.windows"), hint: t("shell.workspace.windowsHint") },
+    { v: "tabs", label: t("shell.workspace.tabs"), hint: t("shell.workspace.tabsHint") },
   ];
   return (
     <div className="relative flex h-9 shrink-0 items-center rounded-xl border border-[var(--st-edge)] bg-[var(--st-glass)] p-0.5">
@@ -495,6 +511,7 @@ function TopBar({
   view?: ViewMode;
   onView?: (v: ViewMode) => void;
 }) {
+  const t = useT();
   const org = useOrg((s) => s.org);
   const stream = useOrg((s) => s.stream);
   const agents = useOrg((s) => s.agents);
@@ -509,7 +526,7 @@ function TopBar({
     n > 0 && (
       <span className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px]" style={{ background: "rgba(255,255,255,0.04)", color }}>
         <span className="size-1.5 rounded-full" style={{ background: color }} />
-        {n} {label}
+        {label}
       </span>
     );
 
@@ -522,38 +539,38 @@ function TopBar({
             className="size-1.5 rounded-full"
             style={{ background: stream === "live" ? "var(--st-green)" : stream === "closed" ? "var(--st-ink-3)" : "var(--st-amber)" }}
           />
-          {stream === "live" ? "Live" : stream === "connecting" ? "Connecting…" : stream === "reconnecting" ? "Reconnecting…" : "Offline"}
+          {stream === "live" ? t("shell.timeline.live") : stream === "connecting" ? t("shell.workspace.connecting") : stream === "reconnecting" ? t("shell.workspace.reconnecting") : t("shell.workspace.offline")}
           {" · "}
-          {list.length} agent{list.length === 1 ? "" : "s"}
-          {paused && " · paused"}
+          {t("org.agentCount", { count: list.length })}
+          {paused && ` · ${t("common.paused")}`}
         </div>
       </div>
       <div className={`flex items-center gap-1.5 ${compact ? "hidden" : ""}`}>
-        {chip("working", "var(--st-violet)", working)}
-        {chip("need you", "var(--st-amber)", needsYou)}
-        {chip("failed", "var(--st-red)", failed)}
+        {chip(t("org.workingCount", { count: working }), "var(--st-violet)", working)}
+        {chip(t("shell.workspace.needYou", { count: needsYou }), "var(--st-amber)", needsYou)}
+        {chip(t("shell.workspace.failedChip", { count: failed }), "var(--st-red)", failed)}
       </div>
       <button
         onClick={() => setCommand(true)}
         className={`${compact ? "hidden" : "flex"} mx-auto h-9 w-full min-w-0 max-w-[460px] items-center gap-2.5 overflow-hidden whitespace-nowrap rounded-xl border border-[var(--st-edge)] bg-[var(--st-glass)] px-3 text-[13px] text-[var(--st-ink-3)] transition-colors hover:border-[var(--st-edge-2)] hover:text-[var(--st-ink-2)]`}
       >
         <Icon name="search" size={15} />
-        Go anywhere, find anything, tell an agent…
+        {t("shell.workspace.commandPlaceholder")}
         <kbd className="st-mono ml-auto rounded-md border border-[var(--st-edge)] px-1.5 py-0.5 text-[10.5px]">Ctrl K</kbd>
       </button>
       <div className="flex items-center gap-1.5">
         {view && onView && !compact && <ViewSwitch view={view} onView={onView} />}
         <button
-          title="Reset this org's layout"
+          title={t("shell.workspace.resetLayoutTitle")}
           onClick={onReset}
           hidden={compact}
           className="h-9 whitespace-nowrap rounded-xl border border-[var(--st-edge)] bg-[var(--st-glass)] px-3 text-[12px] text-[var(--st-ink-2)] hover:text-[var(--st-ink)]"
         >
-          Reset layout
+          {t("shell.workspace.resetLayout")}
         </button>
         {org && (
           <button
-            title={paused ? "Resume all agents" : "Pause all agents (steps in flight finish)"}
+            title={paused ? t("shell.command.resumeAllAgents") : t("shell.workspace.pauseAllHint")}
             onClick={() => api.updateOrg(org.id, { status: paused ? "running" : "paused" }).then((o) => useOrg.getState().setOrg(o))}
             className="flex h-9 items-center gap-1.5 rounded-xl border px-3 text-[12px]"
             style={{
@@ -562,7 +579,7 @@ function TopBar({
               background: "var(--st-glass)",
             }}
           >
-            <Icon name={paused ? "play" : "pause"} size={13} /> {paused ? "Resume" : "Pause"}
+            <Icon name={paused ? "play" : "pause"} size={13} /> {paused ? t("common.resume") : t("common.pause")}
           </button>
         )}
         <div className="studio-page">

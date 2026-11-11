@@ -11,6 +11,7 @@ import { AgentInspector } from "@/components/AgentInspector";
 import { MeetingDialog } from "@/components/MeetingDialog";
 import { WhiteboardOverlay } from "@/components/WhiteboardOverlay";
 import { Button, cx, Empty, Spinner } from "@/components/ui";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import { useAssetVersion } from "@/office/assets";
 import { generateDesign, isDesign, withExtras, type OfficeDesign } from "@/office/design";
@@ -42,6 +43,7 @@ const OfficeCanvas = dynamic(() => import("@/office/OfficeCanvas"), {
 });
 
 export default function OfficePage() {
+  const t = useT();
   const router = useRouter();
   const orgId = useOrg((s) => s.orgId);
   const org = useOrg((s) => s.org);
@@ -108,7 +110,7 @@ export default function OfficePage() {
   if (!maybeDesign) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-ink-3">
-        {officeError ? `The office couldn't load: ${officeError}` : <Spinner />}
+        {officeError ? t("office.loadFailed", { error: officeError }) : <Spinner />}
       </div>
     );
   }
@@ -116,15 +118,15 @@ export default function OfficePage() {
   if (agents.length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
-        <Empty title="This office is empty" icon="🏢">
+        <Empty title={t("office.emptyTitle")} icon="🏢">
           <div className="mt-2 flex flex-col items-center gap-3">
-            Hire agents on the Team tab, or ask Zeus to design the organization for you.
+            {t("office.emptyBody", { team: t("shell.pane.team.title") })}
             <div className="flex gap-2">
               <Link href={`/org/${orgId}/team`}>
-                <Button variant="primary">Hire agents</Button>
+                <Button variant="primary">{t("office.hireAgents")}</Button>
               </Link>
               <Link href="/supervisor">
-                <Button>Ask Zeus</Button>
+                <Button>{t("office.askZeus")}</Button>
               </Link>
             </div>
           </div>
@@ -209,8 +211,8 @@ export default function OfficePage() {
               })}
             </div>
             <div className="absolute right-2 top-2 flex gap-2 md:right-3 md:top-3">
-              <Button size="sm" title="Call a meeting" className="!border-black/10 !bg-white/90 !text-[#1b1d22] hover:!bg-white" onClick={() => setMeetingOpen(true)}>
-                ◎<span className="hidden md:inline"> Call a meeting</span>
+              <Button size="sm" title={t("office.callMeeting")} className="!border-black/10 !bg-white/90 !text-[#1b1d22] hover:!bg-white" onClick={() => setMeetingOpen(true)}>
+                ◎<span className="hidden md:inline"> {t("office.callMeeting")}</span>
               </Button>
               {/* The designer needs a mouse and room for its panels. */}
               <Button
@@ -218,23 +220,23 @@ export default function OfficePage() {
                 className="!hidden !border-black/10 !bg-white/90 !text-[#1b1d22] hover:!bg-white md:!inline-flex"
                 onClick={() => useDesigner.getState().begin(design)}
               >
-                ✎ Design office
+                ✎ {t("office.designOffice")}
               </Button>
               {!aside && (
                 <Button
                   size="sm"
-                  title="Show live activity"
+                  title={t("office.showActivity")}
                   className="!border-black/10 !bg-white/90 !text-[#1b1d22] hover:!bg-white"
                   onClick={() => setAside(true)}
                 >
-                  ◧<span className="hidden md:inline"> Activity</span>
+                  ◧<span className="hidden md:inline"> {t("shell.pane.activity.title")}</span>
                 </Button>
               )}
             </div>
             {activeMeeting && (
               <div className="absolute bottom-2 left-1/2 w-[min(640px,94%)] -translate-x-1/2 md:bottom-4 rounded-xl border border-accent/40 bg-panel/95 px-4 py-3 shadow-2xl backdrop-blur">
                 <div className="flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-accent">
-                  <span className="size-2 rounded-full bg-accent pulse-ring" /> {activeMeeting.style ?? "meeting"} in progress
+                  <span className="size-2 rounded-full bg-accent pulse-ring" /> {t("office.meetingInProgress", { style: activeMeeting.style ?? t("office.meetingFallback") })}
                 </div>
                 <div className="mt-1 text-sm font-medium">{activeMeeting.agenda}</div>
                 {activeMeeting.speakerId && (
@@ -245,7 +247,7 @@ export default function OfficePage() {
                 )}
               </div>
             )}
-            <div className="absolute bottom-3 right-3 hidden rounded bg-white/70 md:block px-2 py-0.5 text-[11px] text-[#4a4f5a]">Drag to orbit · scroll to zoom · click a person</div>
+            <div className="absolute bottom-3 right-3 hidden rounded bg-white/70 md:block px-2 py-0.5 text-[11px] text-[#4a4f5a]">{t("office.orbitHint")}</div>
           </>
         )}
       </div>
@@ -257,9 +259,9 @@ export default function OfficePage() {
           ) : (
             <>
               <div className="flex items-center border-b border-line px-4 py-3 text-sm font-semibold">
-                Live activity
+                {t("office.liveActivity")}
                 <button
-                  title="Hide (the office gets the room)"
+                  title={t("office.hideActivity")}
                   onClick={() => setAside(false)}
                   className="ml-auto grid size-6 place-items-center rounded-md text-ink-3 hover:bg-white/5 hover:text-ink"
                 >

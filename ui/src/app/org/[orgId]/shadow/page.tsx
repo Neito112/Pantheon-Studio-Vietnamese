@@ -4,21 +4,38 @@ import { useShallow } from "zustand/react/shallow";
 import { useCallback, useEffect, useState } from "react";
 import { AgentAvatar } from "@/components/agent";
 import { Badge, Button, cx, Empty, ErrorNote, Field, Input, Select, Spinner, Textarea, type Tone } from "@/components/ui";
+import { formatRelative, useLocale, useT } from "@/i18n";
 import { api } from "@/lib/api";
-import { timeAgo } from "@/lib/format";
 import type { Playbook, ShadowEvent, ShadowSession } from "@/lib/types";
 import { useOrg } from "@/store/org";
 
-// Where a recording was made: this computer (older recordings may say otherwise).
-const WHERE: Record<string, string> = { computer: "this computer", desktop: "my computer", sandbox: "sandbox desktop", browser: "my browser" };
-const STATUS: Record<ShadowSession["status"], [string, Tone]> = {
-  recording: ["recording", "bad"],
-  stopped: ["recorded", "neutral"],
-  learning: ["learning", "accent"],
-  learned: ["learned", "ok"],
+type TFn = (key: string, params?: Record<string, string | number>) => string;
+
+const STATUS_TONE: Record<ShadowSession["status"], Tone> = {
+  recording: "bad",
+  stopped: "neutral",
+  learning: "accent",
+  learned: "ok",
 };
 
+const STATUS_KEY: Record<ShadowSession["status"], string> = {
+  recording: "org.shadow.statusRecording",
+  stopped: "org.shadow.statusRecorded",
+  learning: "org.shadow.statusLearning",
+  learned: "org.shadow.statusLearned",
+};
+
+function whereLabel(t: TFn, source: string): string {
+  if (source === "computer") return t("org.shadow.whereComputer");
+  if (source === "desktop") return t("org.shadow.whereDesktop");
+  if (source === "sandbox") return t("org.shadow.whereSandbox");
+  if (source === "browser") return t("org.shadow.whereBrowser");
+  return source;
+}
+
 export default function ShadowPage() {
+  const t = useT();
+  const locale = useLocale();
   const orgId = useOrg((s) => s.orgId)!;
   const feedLen = useOrg((s) => s.feed.length);
   const [sessions, setSessions] = useState<ShadowSession[] | null>(null);
@@ -45,7 +62,7 @@ export default function ShadowPage() {
               onClick={() => setView(v)}
               className={cx("flex-1 rounded-md px-2 py-1.5 text-sm capitalize cursor-pointer", view === v ? "bg-panel-2 font-medium text-ink" : "text-ink-2 hover:text-ink")}
             >
-              {v}
+              {v === "recordings" ? t("org.shadow.recordings") : t("org.shadow.playbooks")}
             </button>
           ))}
         </div>
@@ -58,11 +75,11 @@ export default function ShadowPage() {
                 void load();
               }}
             />
-            <div className="px-3 pb-1 pt-3 text-[11px] font-medium uppercase tracking-wider text-ink-3">Recordings</div>
+            <div className="px-3 pb-1 pt-3 text-[11px] font-medium uppercase tracking-wider text-ink-3">{t("org.shadow.recordings")}</div>
             {!sessions ? (
               <Spinner />
             ) : sessions.length === 0 ? (
-              <div className="px-3 pb-3 text-xs text-ink-3">None yet.</div>
+              <div className="px-3 pb-3 text-xs text-ink-3">{t("common.noneYet")}</div>
             ) : (
               <ul className="space-y-0.5 px-2 pb-3">
                 {sessions.map((s) => (
@@ -73,10 +90,10 @@ export default function ShadowPage() {
                     >
                       <div className="flex items-center gap-2">
                         <span className="min-w-0 flex-1 truncate text-sm font-medium">{s.title}</span>
-                        <Badge tone={STATUS[s.status][1]}>{STATUS[s.status][0]}</Badge>
+                        <Badge tone={STATUS_TONE[s.status]}>{t(STATUS_KEY[s.status])}</Badge>
                       </div>
                       <div className="mt-0.5 text-[11px] text-ink-3">
-                        for {s.agentName} · {WHERE[s.source] ?? s.source} · {s.eventCount} events · {timeAgo(s.startedAt)}
+                        {t("org.shadow.forAgent", { name: s.agentName ?? t("common.unknown") })} · {whereLabel(t, s.source)} · {t("org.shadow.eventCount", { count: s.eventCount })} · {formatRelative(locale, s.startedAt)}
                       </div>
                     </button>
                   </li>
@@ -86,8 +103,7 @@ export default function ShadowPage() {
           </div>
         ) : (
           <div className="p-3 text-xs leading-relaxed text-ink-3">
-            Playbooks are how agents remember work they learned: from a recording, or because you asked them to write one. Agents read them with read_playbook and can follow
-            them whenever you ask, or on a schedule.
+            {t("org.shadow.playbooksIntro")}
           </div>
         )}
       </aside>
@@ -97,8 +113,8 @@ export default function ShadowPage() {
         ) : selected ? (
           <Recording key={selected} id={selected} onChanged={load} onDeleted={() => (setSelected(null), void load())} />
         ) : (
-          <Empty title="Teach an agent by showing it" icon="👁">
-            Record yourself doing a piece of work on this computer, in any app. Then the agent reviews the recording, writes a playbook and can do the work for you.
+          <Empty title={t("org.shadow.teachEmptyTitle")} icon="👁">
+            {t("org.shadow.teachEmptyBody")}
           </Empty>
         )}
       </section>
@@ -107,6 +123,7 @@ export default function ShadowPage() {
 }
 
 function NewRecording({ orgId, onStarted }: { orgId: string; onStarted: (s: ShadowSession) => void }) {
+  const t = useT();
   const agents = useOrg(useShallow((s) => Object.values(s.agents).filter((a) => !a.isSupervisor)));
   const [agentId, setAgentId] = useState("");
   const [title, setTitle] = useState("");
@@ -129,8 +146,8 @@ function NewRecording({ orgId, onStarted }: { orgId: string; onStarted: (s: Shad
   };
   return (
     <div className="grid gap-3 border-b border-line p-3">
-      <div className="text-sm font-semibold">Teach an agent</div>
-      <Field label="Who learns">
+      <div className="text-sm font-semibold">{t("org.shadow.teachAnAgent")}</div>
+      <Field label={t("org.shadow.whoLearns")}>
         <Select value={agentId || agents[0]?.id || ""} onChange={(e) => setAgentId(e.target.value)}>
           {agents.map((a) => (
             <option key={a.id} value={a.id}>
@@ -139,25 +156,25 @@ function NewRecording({ orgId, onStarted }: { orgId: string; onStarted: (s: Shad
           ))}
         </Select>
       </Field>
-      <Field label="What you'll do">
-        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Weekly invoice run" />
+      <Field label={t("org.shadow.whatYoullDo")}>
+        <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder={t("org.shadow.titlePlaceholder")} />
       </Field>
-      <Field label="Anything they should know" hint="Optional: the goal, when it happens, what good looks like">
-        <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Every Monday; skip customers marked on hold" />
+      <Field label={t("org.shadow.anythingTheyShouldKnow")} hint={t("org.shadow.noteHint")}>
+        <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder={t("org.shadow.notePlaceholder")} />
       </Field>
       <div className="text-[11px] leading-relaxed text-ink-3">
-        Records this computer: the windows you use, where you click and screenshots. What you type is counted, never recorded, and password managers, sign-in and private
-        windows aren&apos;t captured.
+        {t("org.shadow.privacyNote")}
       </div>
       <ErrorNote error={error} />
       <Button variant="primary" disabled={busy || !title.trim() || agents.length === 0} onClick={start}>
-        ● Start recording
+        {t("org.shadow.startRecording")}
       </Button>
     </div>
   );
 }
 
 function Recording({ id, onChanged, onDeleted }: { id: string; onChanged: () => void; onDeleted: () => void }) {
+  const t = useT();
   const [rec, setRec] = useState<(ShadowSession & { events: ShadowEvent[] }) | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState<string | null>(null);
@@ -186,23 +203,23 @@ function Recording({ id, onChanged, onDeleted }: { id: string; onChanged: () => 
     <div className="space-y-4 p-4">
       <div className="flex flex-wrap items-center gap-2">
         <h2 className="text-lg font-semibold">{rec.title}</h2>
-        <Badge tone={STATUS[rec.status][1]}>{STATUS[rec.status][0]}</Badge>
+        <Badge tone={STATUS_TONE[rec.status]}>{t(STATUS_KEY[rec.status])}</Badge>
         <span className="text-xs text-ink-3">
-          for {rec.agentName} · {WHERE[rec.source] ?? rec.source} · {rec.eventCount} events
+          {t("org.shadow.forAgent", { name: rec.agentName ?? t("common.unknown") })} · {whereLabel(t, rec.source)} · {t("org.shadow.eventCount", { count: rec.eventCount })}
         </span>
         <div className="ml-auto flex gap-2">
           {rec.status === "recording" && (
             <Button size="sm" variant="danger" onClick={() => act(() => api.stopShadow(rec.id))}>
-              ■ Stop
+              ■ {t("common.stop")}
             </Button>
           )}
           {(rec.status === "recording" || rec.status === "stopped") && rec.eventCount > 0 && (
             <Button size="sm" variant="primary" onClick={() => act(() => api.learnShadow(rec.id))}>
-              Teach {rec.agentName}
+              {t("org.shadow.teachAgent", { name: rec.agentName ?? t("common.unknown") })}
             </Button>
           )}
           <Button size="sm" variant="ghost" onClick={() => act(() => api.deleteShadow(rec.id)).then(onDeleted)}>
-            Delete
+            {t("common.delete")}
           </Button>
         </div>
       </div>
@@ -211,20 +228,20 @@ function Recording({ id, onChanged, onDeleted }: { id: string; onChanged: () => 
       {rec.status === "recording" && <HowToRecord />}
       {rec.status === "learning" && (
         <div className="rounded-lg border border-accent/40 bg-accent/10 p-3 text-sm">
-          {rec.agentName} is going through the recording and writing a playbook. It may ask you questions in its chat.
+          {t("org.shadow.learningBanner", { name: rec.agentName ?? t("common.unknown") })}
         </div>
       )}
       {(rec.status === "learned" || rec.status === "learning") && <SessionPlaybook orgId={rec.orgId} agentId={rec.agentId} sessionId={rec.id} />}
       <div>
-        <div className="mb-2 text-xs font-medium uppercase tracking-wider text-ink-3">Timeline</div>
+        <div className="mb-2 text-xs font-medium uppercase tracking-wider text-ink-3">{t("org.shadow.timeline")}</div>
         {rec.events.length === 0 ? (
-          <div className="text-sm text-ink-3">Nothing recorded yet.</div>
+          <div className="text-sm text-ink-3">{t("org.shadow.nothingRecorded")}</div>
         ) : (
           <ol className="space-y-1">
             {rec.events.map((e) => (
               <li key={e.id} className="flex items-start gap-3 rounded-md px-2 py-1 hover:bg-panel-2/50">
                 <span className="w-12 shrink-0 font-mono text-[11px] leading-5 text-ink-3">{clock(e.t)}</span>
-                <span className="min-w-0 flex-1 text-sm leading-5">{describe(e)}</span>
+                <span className="min-w-0 flex-1 text-sm leading-5">{describe(e, t)}</span>
                 {e.image && (
                   <button onClick={() => setZoom(e.image)} className="shrink-0 cursor-zoom-in">
                     <img src={e.image} alt="" className="h-14 w-24 rounded border border-line object-cover object-top" loading="lazy" />
@@ -245,12 +262,13 @@ function Recording({ id, onChanged, onDeleted }: { id: string; onChanged: () => 
 }
 
 function HowToRecord() {
+  const t = useT();
   return (
     <div className="flex items-start gap-3 rounded-lg border border-bad/40 bg-bad/5 p-4 text-sm">
       <span className="mt-1.5 size-2.5 shrink-0 animate-pulse rounded-full bg-bad" />
       <div className="space-y-1 text-ink-2">
-        <div className="font-medium text-ink">Recording this computer</div>
-        <div>Do the work as you normally would, in any app, then come back and press Stop (or Teach). Pantheon can stay in the background meanwhile.</div>
+        <div className="font-medium text-ink">{t("org.shadow.recordingThisComputer")}</div>
+        <div>{t("org.shadow.howToRecord")}</div>
       </div>
     </div>
   );
@@ -274,6 +292,7 @@ function SessionPlaybook({ orgId, agentId, sessionId }: { orgId: string; agentId
 }
 
 function Playbooks({ orgId }: { orgId: string }) {
+  const t = useT();
   const byId = useOrg((s) => s.agents);
   const feedLen = useOrg((s) => s.feed.length);
   const [books, setBooks] = useState<Playbook[] | null>(null);
@@ -284,8 +303,8 @@ function Playbooks({ orgId }: { orgId: string }) {
   if (!books) return <Spinner />;
   if (!books.length)
     return (
-      <Empty title="No playbooks yet" icon="📘">
-        Record yourself doing some work and teach an agent with it, or ask an agent to write down how it does something with save_playbook.
+      <Empty title={t("org.shadow.noPlaybooks")} icon="📘">
+        {t("org.shadow.noPlaybooksBody")}
       </Empty>
     );
   return (
@@ -304,6 +323,8 @@ function Playbooks({ orgId }: { orgId: string }) {
 }
 
 function PlaybookCard({ book, onChanged }: { book: Playbook; onChanged: () => void }) {
+  const t = useT();
+  const locale = useLocale();
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(book.content);
   const [error, setError] = useState<string | null>(null);
@@ -320,24 +341,24 @@ function PlaybookCard({ book, onChanged }: { book: Playbook; onChanged: () => vo
     <div className="rounded-lg border border-line bg-panel p-3">
       <div className="mb-2 flex items-center gap-2">
         <span className="text-sm font-semibold">📘 {book.title}</span>
-        <span className="text-[11px] text-ink-3">{timeAgo(book.updatedAt ?? book.createdAt)}</span>
+        <span className="text-[11px] text-ink-3">{formatRelative(locale, book.updatedAt ?? book.createdAt)}</span>
         <div className="ml-auto flex gap-1">
           {editing ? (
             <>
               <Button size="sm" variant="primary" onClick={save}>
-                Save
+                {t("common.save")}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => (setEditing(false), setText(book.content))}>
-                Cancel
+                {t("common.cancel")}
               </Button>
             </>
           ) : (
             <>
               <Button size="sm" variant="ghost" onClick={() => setEditing(true)}>
-                Edit
+                {t("common.edit")}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => api.deletePlaybook(book.id).then(onChanged)}>
-                Delete
+                {t("common.delete")}
               </Button>
             </>
           )}
@@ -351,54 +372,54 @@ function PlaybookCard({ book, onChanged }: { book: Playbook; onChanged: () => vo
 
 const clock = (t: number) => `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(Math.floor(t % 60)).padStart(2, "0")}`;
 
-function describe(e: ShadowEvent): React.ReactNode {
+function describe(e: ShadowEvent, t: TFn): React.ReactNode {
   const d = e.data as Record<string, string | number | string[] | undefined>;
-  const where = d.window ? <span className="text-ink-3"> in {String(d.window)}</span> : null;
+  const where = d.window ? <span className="text-ink-3">{t("org.shadow.eventInWindow", { window: String(d.window) })}</span> : null;
   switch (e.kind) {
     case "click":
       return (
         <>
-          🖱 Clicked {d.label ? <b>{String(d.label)}</b> : d.x !== undefined ? `at (${d.x}, ${d.y})` : "something"}
+          🖱 {t("org.shadow.eventClicked")} {d.label ? <b>{String(d.label)}</b> : d.x !== undefined ? t("org.shadow.eventClickedAt", { x: String(d.x), y: String(d.y) }) : t("org.shadow.eventClickedSomething")}
           {where}
         </>
       );
     case "input":
       return (
         <>
-          ⌨ Filled <b>{String(d.label || d.name || "a field")}</b> with <span className="font-mono text-[12px]">{String(d.value ?? "")}</span>
+          ⌨ {t("org.shadow.eventFilled")} <b>{String(d.label || d.name || t("org.shadow.eventAField"))}</b> {t("org.shadow.eventWith")} <span className="font-mono text-[12px]">{String(d.value ?? "")}</span>
         </>
       );
     case "submit":
-      return <>↵ Submitted {d.label ? <b>{String(d.label)}</b> : "a form"}</>;
+      return <>↵ {t("org.shadow.eventSubmitted")} {d.label ? <b>{String(d.label)}</b> : t("org.shadow.eventAForm")}</>;
     case "key":
       return (
         <>
-          ↵ Pressed {String(d.key)}
-          {d.label ? <span className="text-ink-3"> in {String(d.label)}</span> : null}
+          ↵ {t("org.shadow.eventPressed")} {String(d.key)}
+          {d.label ? <span className="text-ink-3">{t("org.shadow.eventInLabel", { label: String(d.label) })}</span> : null}
         </>
       );
     case "navigate":
       return (
         <>
-          🌐 {d.switched ? "Switched to" : "Opened"} <b>{String(d.title || d.url)}</b> <span className="break-all text-[11px] text-ink-3">{String(d.url ?? "")}</span>
+          🌐 {d.switched ? t("org.shadow.eventSwitchedTo") : t("org.shadow.eventOpened")} <b>{String(d.title || d.url)}</b> <span className="break-all text-[11px] text-ink-3">{String(d.url ?? "")}</span>
         </>
       );
     case "window":
       return (
         <>
-          🗔 Switched to <b>{String(d.title || "(no title)")}</b>
+          🗔 {t("org.shadow.eventSwitchedTo")} <b>{String(d.title || t("org.shadow.eventNoTitle"))}</b>
         </>
       );
     case "typing":
       return (
         <>
-          ⌨ Typed {String(d.keys)} characters{Array.isArray(d.special) && d.special.length ? ` (then ${d.special.join(", ")})` : ""}
+          ⌨ {Array.isArray(d.special) && d.special.length ? t("org.shadow.eventTypedThen", { keys: String(d.keys), special: d.special.join(", ") }) : t("org.shadow.eventTyped", { keys: String(d.keys) })}
           {where}
         </>
       );
     case "note":
       return <span className="text-ink-2">ℹ {String(d.text)}</span>;
     default:
-      return <span className="text-ink-3">📷 Screen{where}</span>;
+      return <span className="text-ink-3">📷 {t("org.shadow.eventScreen")}{where}</span>;
   }
 }

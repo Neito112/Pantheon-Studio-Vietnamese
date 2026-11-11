@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import type { Org } from "@/lib/types";
 import { notifyOrgsChanged } from "./AppShell";
@@ -8,6 +9,7 @@ import { Button, ErrorNote, Input, Modal } from "./ui";
 
 /** Confirm-by-typing-the-name dialog for deleting an organization. */
 export function DeleteOrgDialog({ org, open, onClose, onDeleted }: { org: Pick<Org, "id" | "name" | "agentCount" | "openTasks">; open: boolean; onClose: () => void; onDeleted?: () => void }) {
+  const t = useT();
   const [typed, setTyped] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,32 +32,39 @@ export function DeleteOrgDialog({ org, open, onClose, onDeleted }: { org: Pick<O
       setBusy(false);
     }
   };
+  const agents =
+    typeof org.agentCount === "number"
+      ? org.agentCount === 1
+        ? t("org.deleteWithAgents", { count: org.agentCount })
+        : t("org.deleteWithAgentsPlural", { count: org.agentCount })
+      : "";
+  const tasks =
+    typeof org.openTasks === "number" && org.openTasks
+      ? org.openTasks === 1
+        ? t("org.deleteWithTasks", { count: org.openTasks })
+        : t("org.deleteWithTasksPlural", { count: org.openTasks })
+      : "";
   return (
     <Modal
       open={open}
       onClose={close}
-      title={`Delete ${org.name}?`}
+      title={t("org.deleteTitle", { name: org.name })}
       footer={
         <>
           <Button variant="ghost" onClick={close}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button variant="danger" loading={busy} disabled={typed.trim() !== org.name} onClick={remove}>
-            Delete organization
+            {t("org.deleteConfirmButton")}
           </Button>
         </>
       }
     >
       <div className="space-y-3 text-sm">
-        <p className="text-ink-2">
-          This stops every agent and permanently deletes the organization
-          {typeof org.agentCount === "number" ? ` with its ${org.agentCount} agent${org.agentCount === 1 ? "" : "s"}` : ""}
-          {typeof org.openTasks === "number" && org.openTasks ? ` and ${org.openTasks} open task${org.openTasks === 1 ? "" : "s"}` : ""}: conversations, tasks, sessions, the office and its
-          objects. Files in its workspace folder on disk are kept. This can&apos;t be undone.
-        </p>
+        <p className="text-ink-2">{t("org.deleteWarning", { agents, tasks })}</p>
         <div>
           <div className="mb-1.5 text-xs text-ink-3">
-            Type <b className="text-ink">{org.name}</b> to confirm
+            {t("org.typeToConfirmLead")} <b className="text-ink">{org.name}</b> {t("org.typeToConfirmTail")}
           </div>
           <Input autoFocus value={typed} onChange={(e) => setTyped(e.target.value)} onKeyDown={(e) => e.key === "Enter" && typed.trim() === org.name && void remove()} />
         </div>

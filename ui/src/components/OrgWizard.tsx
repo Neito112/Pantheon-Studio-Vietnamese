@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { notifyOrgsChanged } from "@/components/AppShell";
 import { KindTab } from "@/components/team/KindTab";
+import { useT } from "@/i18n";
 import { DEFAULT_WORKSPACE, WorkspaceSetup, workspaceReady, type WorkspaceSpec } from "@/components/WorkspaceSetup";
 import { Badge, Button, cx, ErrorNote, Field, Input, Modal, Select, Textarea, Toggle } from "@/components/ui";
 import { api } from "@/lib/api";
@@ -43,12 +44,7 @@ interface Draft {
   base: Def | null;
 }
 
-const STEPS = ["Purpose", "Agents", "Settings", "Review"] as const;
-const KIND_CARDS: [Kind, string, string][] = [
-  ["solo", "One agent", "One capable agent does the whole job. Best for most tasks: fastest and cheapest."],
-  ["team", "A team", "A lead who plans and builds, plus a few specialists working in parallel. For work that splits."],
-  ["flow", "A flow", "A fixed graph of steps, each one agent doing one thing. You draw the flow after creating."],
-];
+const STEPS = ["purpose", "agents", "settings", "review"] as const;
 
 let seq = 0;
 const newKey = () => `a${++seq}`;
@@ -132,6 +128,7 @@ function toDefinition(d: Draft, kind: Kind): Def {
 
 export function OrgWizard({ open, onClose }: { open: boolean; onClose: () => void }) {
   const router = useRouter();
+  const t = useT();
   const [step, setStep] = useState(0);
   const [goal, setGoal] = useState("");
   const [kind, setKind] = useState<Kind>("solo");
@@ -200,12 +197,12 @@ export function OrgWizard({ open, onClose }: { open: boolean; onClose: () => voi
       setStep(1);
     });
 
-  const pickTemplate = (t: Template) =>
+  const pickTemplate = (tpl: Template) =>
     run("template", async () => {
-      const def = await api.template(t.key);
+      const def = await api.template(tpl.key);
       setDraft(fromTemplate(def, catalog?.base ?? []));
-      setKind(t.mode === "flow" ? "flow" : t.agents.length > 1 ? "team" : "solo");
-      setWorkspace((w) => ({ ...w, git: t.workspace?.git ?? w.git, worktrees: t.workspace?.worktrees ?? w.worktrees }));
+      setKind(tpl.mode === "flow" ? "flow" : tpl.agents.length > 1 ? "team" : "solo");
+      setWorkspace((w) => ({ ...w, git: tpl.workspace?.git ?? w.git, worktrees: tpl.workspace?.worktrees ?? w.worktrees }));
       setStep(1);
     });
 
@@ -225,52 +222,58 @@ export function OrgWizard({ open, onClose }: { open: boolean; onClose: () => voi
   const setAgent = (key: string, patch: Partial<DraftAgent>) => setDraft((d) => ({ ...d, agents: d.agents.map((a) => (a.key === key ? { ...a, ...patch } : a)) }));
   const names = draft.agents.map((a) => a.name.trim().toLowerCase());
   const problems = [
-    !draft.name.trim() && "Give the organization a name.",
-    draft.agents.length === 0 && "Add at least one agent.",
-    names.some((n) => !n) && "Every agent needs a name.",
-    new Set(names).size !== names.length && "Two agents have the same name.",
-    !workspaceReady(workspace) && "Finish the workspace choice.",
+    !draft.name.trim() && t("org.problemName"),
+    draft.agents.length === 0 && t("org.problemNoAgents"),
+    names.some((n) => !n) && t("org.problemAgentName"),
+    new Set(names).size !== names.length && t("org.problemDuplicateName"),
+    !workspaceReady(workspace) && t("org.problemWorkspace"),
   ].filter(Boolean) as string[];
 
   const footer = (
     <>
       <span className="mr-auto self-center text-xs text-ink-3">
-        Step {step + 1} of {STEPS.length}
+        {t("org.stepOf", { step: step + 1, total: STEPS.length })}
       </span>
       {step > 0 && (
         <Button variant="ghost" onClick={() => setStep(step - 1)}>
-          Back
+          {t("common.back")}
         </Button>
       )}
       {step === 0 ? null : step < STEPS.length - 1 ? (
         <Button variant="primary" onClick={() => setStep(step + 1)} disabled={draft.agents.length === 0}>
-          Next
+          {t("common.next")}
         </Button>
       ) : (
         <Button variant="primary" onClick={create} loading={busy === "create"} disabled={problems.length > 0 || busy !== null}>
-          Create organization
+          {t("org.createOrganization")}
         </Button>
       )}
     </>
   );
 
+  const kindCards: [Kind, string, string][] = [
+    ["solo", t("org.kindSolo"), t("org.kindSoloHint")],
+    ["team", t("org.kindTeam"), t("org.kindTeamHint")],
+    ["flow", t("org.kindFlow"), t("org.kindFlowHint")],
+  ];
+
   return (
-    <Modal open={open} onClose={close} title="New organization" wide footer={footer}>
+    <Modal open={open} onClose={close} title={t("org.wizardTitle")} wide footer={footer}>
       <Stepper step={step} reached={draft.agents.length > 0 ? STEPS.length - 1 : 0} onStep={setStep} />
       <div className="mt-5">
         {step === 0 && (
           <div className="grid gap-5">
-            <Field label="What should it do?" hint="Zeus uses this to draft the agents, their prompts and their tools">
+            <Field label={t("org.whatShouldItDo")} hint={t("org.whatShouldItDoHint")}>
               <Textarea
                 rows={4}
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
-                placeholder="e.g. Design and build a responsive booking site for a yoga studio: four screens, accessible, with a design system."
+                placeholder={t("org.goalPlaceholder")}
               />
             </Field>
-            <Field label="Kind">
+            <Field label={t("org.kind")}>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                {KIND_CARDS.map(([id, label, hint]) => (
+                {kindCards.map(([id, label, hint]) => (
                   <button key={id} type="button" onClick={() => setKind(id)} className={cardClass(kind === id)}>
                     <div className="text-sm font-medium">{label}</div>
                     <div className="mt-1 text-xs text-ink-3">{hint}</div>
@@ -280,12 +283,12 @@ export function OrgWizard({ open, onClose }: { open: boolean; onClose: () => voi
             </Field>
             <div className="flex flex-wrap items-center gap-2">
               <Button variant="primary" onClick={() => zeusDraft(false)} loading={busy === "draft"} disabled={!goal.trim() || busy !== null}>
-                ✦ Draft with Zeus
+                {t("org.draftWithZeus")}
               </Button>
               <Button variant="ghost" onClick={blank} disabled={busy !== null}>
-                Start blank
+                {t("org.startBlank")}
               </Button>
-              {busy === "draft" && <span className="text-xs text-ink-3">Zeus is drafting the team; this takes a few seconds…</span>}
+              {busy === "draft" && <span className="text-xs text-ink-3">{t("org.zeusDrafting")}</span>}
             </div>
             <ErrorNote error={error} />
             <TemplateList templates={templates} onPick={pickTemplate} onChanged={() => api.templates().then(setTemplates)} busy={busy === "template"} />
@@ -296,9 +299,9 @@ export function OrgWizard({ open, onClose }: { open: boolean; onClose: () => voi
           <div className="grid gap-4">
             {goal.trim() && (
               <div className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-panel-2 p-2">
-                <Input className="min-w-0 flex-1" value={ask} onChange={(e) => setAsk(e.target.value)} placeholder="Ask Zeus to change the whole team, e.g. “add a reviewer” or “make it one agent”" />
+                <Input className="min-w-0 flex-1" value={ask} onChange={(e) => setAsk(e.target.value)} placeholder={t("org.askZeusPlaceholder")} />
                 <Button size="sm" onClick={() => zeusDraft(true)} loading={busy === "revise"} disabled={!ask.trim() || busy !== null}>
-                  ✦ Revise
+                  {t("org.revise")}
                 </Button>
               </div>
             )}
@@ -333,7 +336,7 @@ export function OrgWizard({ open, onClose }: { open: boolean; onClose: () => voi
                   setDraft((d) => ({ ...d, agents: [...d.agents, toAgent({ name: "", role: "", lead: false, persona: "", tools: catalog?.base ?? [] })] }))
                 }
               >
-                + Add an agent
+                {t("org.addAgent")}
               </Button>
             </div>
           </div>
@@ -341,16 +344,16 @@ export function OrgWizard({ open, onClose }: { open: boolean; onClose: () => voi
 
         {step === 2 && (
           <div className="grid gap-4">
-            <Field label="Name">
-              <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Acme Research" />
+            <Field label={t("org.name")}>
+              <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder={t("org.namePlaceholder")} />
             </Field>
-            <Field label="Description" hint="Every agent sees this: what the organization is for and its standing rules">
+            <Field label={t("org.description")} hint={t("org.descriptionHint")}>
               <Textarea rows={3} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
             </Field>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <Field label="Model" hint="For every agent on Pantheon's loop">
+              <Field label={t("common.model")} hint={t("org.modelHint")}>
                 <Select value={draft.model} onChange={(e) => setDraft({ ...draft, model: e.target.value })}>
-                  <option value="">Platform default</option>
+                  <option value="">{t("org.platformDefault")}</option>
                   {providers.flatMap((p) =>
                     p.models.map((m) => (
                       <option key={`${p.id}::${m.id}`} value={`${p.id}::${m.id}`}>
@@ -360,24 +363,24 @@ export function OrgWizard({ open, onClose }: { open: boolean; onClose: () => voi
                   )}
                 </Select>
               </Field>
-              <Field label="Shell commands" hint="run_command and the computer's shell">
+              <Field label={t("org.shellCommands")} hint={t("org.shellHint")}>
                 <Select value={draft.shell} onChange={(e) => setDraft({ ...draft, shell: e.target.value as Draft["shell"] })}>
-                  <option value="ask">Ask me each time</option>
-                  <option value="auto">Run without asking</option>
+                  <option value="ask">{t("org.shellAsk")}</option>
+                  <option value="auto">{t("org.shellAuto")}</option>
                 </Select>
               </Field>
-              <Field label="Agents working at once" hint="More is faster for a team, if your model server keeps up">
+              <Field label={t("org.agentsAtOnce")} hint={t("org.agentsAtOnceHint")}>
                 <Input type="number" min={1} max={8} value={draft.maxConcurrent} onChange={(e) => setDraft({ ...draft, maxConcurrent: Math.max(1, Math.min(8, Number(e.target.value) || 1)) })} />
               </Field>
-              <Field label="Tools offered to the model" hint="Lean: the core tools in full, the rest by name until loaded">
+              <Field label={t("org.toolsOffered")} hint={t("org.toolsOfferedHint")}>
                 <Select value={draft.loadout} onChange={(e) => setDraft({ ...draft, loadout: e.target.value as Draft["loadout"] })}>
-                  <option value="lean">Lean (recommended)</option>
-                  <option value="all">All, every call</option>
+                  <option value="lean">{t("org.loadoutLean")}</option>
+                  <option value="all">{t("org.loadoutAll")}</option>
                 </Select>
               </Field>
             </div>
-            <Toggle checked={draft.writing === "ste"} onChange={(v) => setDraft({ ...draft, writing: v ? "ste" : "plain" })} label="Write in Simplified Technical English (ASD-STE100)" />
-            <Field label="Workspace" hint="Where the agents work">
+            <Toggle checked={draft.writing === "ste"} onChange={(v) => setDraft({ ...draft, writing: v ? "ste" : "plain" })} label={t("org.steToggle")} />
+            <Field label={t("org.workspace")} hint={t("org.workspaceHint")}>
               <WorkspaceSetup value={workspace} onChange={setWorkspace} />
             </Field>
           </div>
@@ -386,28 +389,30 @@ export function OrgWizard({ open, onClose }: { open: boolean; onClose: () => voi
         {step === 3 && (
           <div className="grid gap-4 text-sm">
             <div>
-              <div className="text-base font-semibold">{draft.name || "Unnamed organization"}</div>
-              <div className="mt-1 text-ink-2">{draft.description || "No description"}</div>
+              <div className="text-base font-semibold">{draft.name || t("org.unnamedOrganization")}</div>
+              <div className="mt-1 text-ink-2">{draft.description || t("org.noDescriptionShort")}</div>
               <div className="mt-2 flex flex-wrap gap-1.5">
-                <Badge tone="accent">{KIND_CARDS.find((k) => k[0] === kind)?.[1]}</Badge>
-                <Badge>{draft.maxConcurrent} at once</Badge>
-                <Badge tone={draft.shell === "auto" ? "warn" : "neutral"}>shell: {draft.shell === "auto" ? "runs without asking" : "asks"}</Badge>
-                <Badge>{draft.loadout} tools</Badge>
+                <Badge tone="accent">{kindCards.find((k) => k[0] === kind)?.[1]}</Badge>
+                <Badge>{t("org.atOnceBadge", { count: draft.maxConcurrent })}</Badge>
+                <Badge tone={draft.shell === "auto" ? "warn" : "neutral"}>
+                  {draft.shell === "auto" ? t("org.shellRunsBadge") : t("org.shellAsksBadge")}
+                </Badge>
+                <Badge>{t("org.toolsBadge", { count: draft.loadout === "all" ? "all" : "lean" })}</Badge>
                 {draft.writing === "ste" && <Badge>STE</Badge>}
-                <Badge>{draft.model ? draft.model.split("::")[1] : "default model"}</Badge>
+                <Badge>{draft.model ? draft.model.split("::")[1] : t("org.defaultModelBadge")}</Badge>
               </div>
             </div>
             <div className="grid gap-2">
               {draft.agents.map((a) => (
                 <div key={a.key} className="rounded-lg border border-line p-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{a.name || "(no name)"}</span>
+                    <span className="font-medium">{a.name || t("org.noName")}</span>
                     <span className="text-ink-3">{a.role}</span>
-                    {a.lead && draft.agents.length > 1 && <Badge tone="accent">lead</Badge>}
+                    {a.lead && draft.agents.length > 1 && <Badge tone="accent">{t("org.leadBadge")}</Badge>}
                     {a.kind !== "llm" && <Badge tone="info">{String(a.runner.preset || a.runner.command || a.kind)}</Badge>}
-                    <span className="ml-auto text-xs text-ink-3">{a.tools.length} tools</span>
+                    <span className="ml-auto text-xs text-ink-3">{t("org.toolCount", { count: a.tools.length })}</span>
                   </div>
-                  <div className="mt-1 line-clamp-2 text-xs text-ink-3">{a.persona || "No prompt yet."}</div>
+                  <div className="mt-1 line-clamp-2 text-xs text-ink-3">{a.persona || t("org.noPromptYet")}</div>
                 </div>
               ))}
             </div>
@@ -418,7 +423,7 @@ export function OrgWizard({ open, onClose }: { open: boolean; onClose: () => voi
                 ))}
               </ul>
             )}
-            {kind === "flow" && <div className="text-ink-3">After creating, draw the flow in the organization's Flows pane: each step is one of these agents.</div>}
+            {kind === "flow" && <div className="text-ink-3">{t("org.flowHintAfterCreate")}</div>}
             <ErrorNote error={error} />
           </div>
         )}
@@ -431,6 +436,7 @@ const cardClass = (active: boolean) =>
   cx("relative rounded-lg border p-3 text-left transition-colors cursor-pointer", active ? "border-accent bg-accent/10" : "border-line hover:border-line-2");
 
 function Stepper({ step, reached, onStep }: { step: number; reached: number; onStep: (n: number) => void }) {
+  const t = useT();
   return (
     <ol className="flex flex-wrap gap-1 text-xs">
       {STEPS.map((s, i) => (
@@ -446,7 +452,7 @@ function Stepper({ step, reached, onStep }: { step: number; reached: number; onS
               i > reached && "opacity-50",
             )}
           >
-            {i + 1}. {s}
+            {i + 1}. {t(`org.step${s.charAt(0).toUpperCase()}${s.slice(1)}` as string)}
           </button>
         </li>
       ))}
@@ -477,42 +483,43 @@ function AgentCard({
   const [panel, setPanel] = useState<"prompt" | "tools" | "runs">("prompt");
   const [instruction, setInstruction] = useState("");
   const external = agent.kind !== "llm";
+  const t = useT();
   return (
     <div className="rounded-lg border border-line">
       <button type="button" onClick={() => setOpen(!open)} className="flex w-full flex-wrap items-center gap-2 px-3 py-2.5 text-left cursor-pointer">
         <span className="text-ink-3">{open ? "▾" : "▸"}</span>
-        <span className="font-medium">{agent.name || "New agent"}</span>
+        <span className="font-medium">{agent.name || t("org.newAgent")}</span>
         <span className="text-sm text-ink-3">{agent.role}</span>
-        {team && agent.lead && <Badge tone="accent">lead</Badge>}
+        {team && agent.lead && <Badge tone="accent">{t("org.leadBadge")}</Badge>}
         {external && <Badge tone="info">{String(agent.runner.preset || agent.runner.command || agent.kind)}</Badge>}
-        <span className="ml-auto text-xs text-ink-3">{agent.tools.length} tools</span>
+        <span className="ml-auto text-xs text-ink-3">{t("org.toolCount", { count: agent.tools.length })}</span>
       </button>
       {open && (
         <div className="grid gap-3 border-t border-line p-3">
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <Field label="Name">
-              <Input value={agent.name} onChange={(e) => onChange({ name: e.target.value })} placeholder="Iva" />
+            <Field label={t("org.name")}>
+              <Input value={agent.name} onChange={(e) => onChange({ name: e.target.value })} placeholder={t("org.agentNamePlaceholder")} />
             </Field>
-            <Field label="Role">
-              <Input value={agent.role} onChange={(e) => onChange({ role: e.target.value })} placeholder="Design director" />
+            <Field label={t("team.agentRole")}>
+              <Input value={agent.role} onChange={(e) => onChange({ role: e.target.value })} placeholder={t("org.rolePlaceholder")} />
             </Field>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            {team && <Toggle checked={agent.lead} onChange={(v) => v && onLead()} label="Leads the team" />}
+            {team && <Toggle checked={agent.lead} onChange={(v) => v && onLead()} label={t("org.leadsTheTeam")} />}
             <div className="ml-auto flex gap-1">
               {(
                 [
-                  ["prompt", "Prompt"],
-                  ["tools", "Tools"],
-                  ["runs", "Runs on"],
+                  ["prompt", t("org.tabPrompt")],
+                  ["tools", t("org.tabTools")],
+                  ["runs", t("org.tabRunsOn")],
                 ] as const
               ).map(([id, label]) => (
                 <Button key={id} size="sm" variant={panel === id ? "secondary" : "ghost"} onClick={() => setPanel(id)}>
                   {label}
                 </Button>
               ))}
-              <Button size="sm" variant="ghost" onClick={onRemove} title="Remove this agent">
-                Remove
+              <Button size="sm" variant="ghost" onClick={onRemove} title={t("org.removeAgentTitle")}>
+                {t("org.remove")}
               </Button>
             </div>
           </div>
@@ -523,12 +530,12 @@ function AgentCard({
                 rows={10}
                 value={agent.persona}
                 onChange={(e) => onChange({ persona: e.target.value })}
-                placeholder="Who this agent is: what it owns, how it works, its quality bar, who it works with and when it is done."
+                placeholder={t("org.personaPlaceholder")}
               />
               <div className="flex flex-wrap items-center gap-2">
-                <Input className="min-w-0 flex-1" value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder="Optional: what to change (“stricter on accessibility”)" />
+                <Input className="min-w-0 flex-1" value={instruction} onChange={(e) => setInstruction(e.target.value)} placeholder={t("org.improvePlaceholder")} />
                 <Button size="sm" onClick={() => improve(instruction)} loading={improving}>
-                  ✦ {agent.persona ? "Improve" : "Write"} with Zeus
+                  {agent.persona ? t("org.improveWithZeus") : t("org.writeWithZeus")}
                 </Button>
               </div>
             </>
@@ -536,7 +543,7 @@ function AgentCard({
           {panel === "tools" && <ToolPicker value={agent.tools} catalog={catalog} onChange={(tools) => onChange({ tools })} />}
           {panel === "runs" && (
             <div className="grid gap-2">
-              <div className="text-xs text-ink-3">Pantheon&apos;s own loop, or another agent harness (Claude Code, Codex, omp…) doing this agent&apos;s work.</div>
+              <div className="text-xs text-ink-3">{t("org.runsOnHint")}</div>
               <KindTab draft={{ kind: agent.kind, runner: agent.runner } as unknown as Agent} onChange={(kind, runner) => onChange({ kind, runner })} />
             </div>
           )}
@@ -548,58 +555,59 @@ function AgentCard({
 
 function ToolPicker({ value, catalog, onChange }: { value: string[]; catalog: WizardTools | null; onChange: (v: string[]) => void }) {
   const [filter, setFilter] = useState("");
+  const t = useT();
   const chosen = new Set(value);
   const base = new Set(catalog?.base ?? []);
   const groups = useMemo(() => {
     const out = new Map<string, WizardTools["tools"]>();
     const f = filter.trim().toLowerCase();
-    for (const t of catalog?.tools ?? []) {
-      if (base.has(t.name) || (f && !`${t.name} ${t.summary}`.toLowerCase().includes(f))) continue;
-      out.set(t.category, [...(out.get(t.category) ?? []), t]);
+    for (const tool of catalog?.tools ?? []) {
+      if (base.has(tool.name) || (f && !`${tool.name} ${tool.summary}`.toLowerCase().includes(f))) continue;
+      out.set(tool.category, [...(out.get(tool.category) ?? []), tool]);
     }
     return [...out.entries()].sort(([a], [b]) => a.localeCompare(b));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [catalog, filter]);
-  if (!catalog) return <div className="text-sm text-ink-3">Loading tools…</div>;
+  if (!catalog) return <div className="text-sm text-ink-3">{t("org.loadingTools")}</div>;
   const toggle = (n: string) => onChange(chosen.has(n) ? value.filter((x) => x !== n) : [...value, n]);
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap gap-1">
-        <span className="mr-1 text-xs text-ink-3">Always:</span>
+        <span className="mr-1 text-xs text-ink-3">{t("org.alwaysLabel")}</span>
         {catalog.base.map((n) => (
           <Badge key={n} tone="accent">
             {n}
           </Badge>
         ))}
       </div>
-      <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder="Find a tool (browser, stage, sheet, git…)" />
+      <Input value={filter} onChange={(e) => setFilter(e.target.value)} placeholder={t("org.findToolPlaceholder")} />
       <div className="grid max-h-80 gap-3 overflow-y-auto pr-1">
         {groups.map(([cat, tools]) => (
           <div key={cat}>
             <div className="mb-1 text-[11px] font-medium uppercase tracking-wider text-ink-3">
-              {cat} · {tools.filter((t) => chosen.has(t.name)).length}/{tools.length}
+              {cat} · {tools.filter((tool) => chosen.has(tool.name)).length}/{tools.length}
               <button
                 type="button"
                 className="ml-2 normal-case tracking-normal text-accent hover:underline cursor-pointer"
                 onClick={() => {
-                  const all = tools.every((t) => chosen.has(t.name));
-                  const names = new Set(tools.map((t) => t.name));
+                  const all = tools.every((tool) => chosen.has(tool.name));
+                  const names = new Set(tools.map((tool) => tool.name));
                   onChange(all ? value.filter((n) => !names.has(n)) : [...new Set([...value, ...names])]);
                 }}
               >
-                {tools.every((t) => chosen.has(t.name)) ? "none" : "all"}
+                {tools.every((tool) => chosen.has(tool.name)) ? t("org.selectNone") : t("org.selectAll")}
               </button>
             </div>
             <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-              {tools.map((t) => (
-                <label key={t.name} className={cx("flex cursor-pointer items-start gap-2 rounded-md border px-2 py-1.5", chosen.has(t.name) ? "border-accent/50 bg-accent/5" : "border-line")}>
-                  <input type="checkbox" className="mt-0.5" checked={chosen.has(t.name)} onChange={() => toggle(t.name)} />
+              {tools.map((tool) => (
+                <label key={tool.name} className={cx("flex cursor-pointer items-start gap-2 rounded-md border px-2 py-1.5", chosen.has(tool.name) ? "border-accent/50 bg-accent/5" : "border-line")}>
+                  <input type="checkbox" className="mt-0.5" checked={chosen.has(tool.name)} onChange={() => toggle(tool.name)} />
                   <span className="min-w-0">
                     <span className="block text-xs font-medium">
-                      {t.name}
-                      {t.sideEffects && <span className="ml-1 text-warn">·acts outside</span>}
+                      {tool.name}
+                      {tool.sideEffects && <span className="ml-1 text-warn">{t("org.actsOutside")}</span>}
                     </span>
-                    <span className="block text-[11px] text-ink-3">{t.summary}</span>
+                    <span className="block text-[11px] text-ink-3">{tool.summary}</span>
                   </span>
                 </label>
               ))}
@@ -611,51 +619,55 @@ function ToolPicker({ value, catalog, onChange }: { value: string[]; catalog: Wi
   );
 }
 
-function TemplateList({ templates, onPick, onChanged, busy }: { templates: Template[]; onPick: (t: Template) => void; onChanged: () => void; busy: boolean }) {
+function TemplateList({ templates, onPick, onChanged, busy }: { templates: Template[]; onPick: (tpl: Template) => void; onChanged: () => void; busy: boolean }) {
   const [note, setNote] = useState<string | null>(null);
+  const t = useT();
   const groups: [string, Template[]][] = [
-    ["Templates", templates.filter((t) => t.source === "builtin")],
-    ["Your templates", templates.filter((t) => t.source === "mine")],
-    ["From packs", templates.filter((t) => t.source === "pack")],
+    [t("org.templatesGroup"), templates.filter((tpl) => tpl.source === "builtin")],
+    [t("org.templatesMineGroup"), templates.filter((tpl) => tpl.source === "mine")],
+    [t("org.templatesPackGroup"), templates.filter((tpl) => tpl.source === "pack")],
   ];
   const importFile = (f: File) =>
     f
       .text()
       .then((text) => api.addTemplate(JSON.parse(text)))
-      .then((t) => {
-        setNote(`Added "${t.name}" to your templates.`);
+      .then((tpl) => {
+        setNote(t("org.templateAdded", { name: tpl.name }));
         onChanged();
-        onPick(t);
+        onPick(tpl);
       })
-      .catch((e: Error) => setNote(e instanceof SyntaxError ? "That file isn't JSON." : e.message));
+      .catch((e: Error) => setNote(e instanceof SyntaxError ? t("org.templateNotJson") : e.message));
   return (
     <div className="grid gap-4 border-t border-line pt-4">
-      <div className="text-sm text-ink-2">Or start from a template: you can still change everything in the next steps.{busy && " Loading…"}</div>
+      <div className="text-sm text-ink-2">
+        {t("org.templatesIntro")}
+        {busy && t("org.templatesLoading")}
+      </div>
       {groups.map(
         ([label, list]) =>
           list.length > 0 && (
             <div key={label}>
               <div className="mb-2 text-xs font-medium uppercase tracking-wider text-ink-3">{label}</div>
               <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                {list.map((t) => (
-                  <button key={t.key} onClick={() => onPick(t)} className={cardClass(false)}>
+                {list.map((tpl) => (
+                  <button key={tpl.key} onClick={() => onPick(tpl)} className={cardClass(false)}>
                     <div className="flex items-center gap-2 pr-5 text-sm font-medium">
-                      {t.name}
-                      {t.mode === "flow" && <Badge tone="info">flow</Badge>}
+                      {tpl.name}
+                      {tpl.mode === "flow" && <Badge tone="info">{t("org.templateFlowBadge")}</Badge>}
                     </div>
-                    <div className="mt-1 line-clamp-2 text-xs text-ink-3">{t.description}</div>
+                    <div className="mt-1 line-clamp-2 text-xs text-ink-3">{tpl.description}</div>
                     <div className="mt-2 flex flex-wrap gap-1">
-                      {t.agents.map((a) => (
+                      {tpl.agents.map((a) => (
                         <Badge key={a.name}>{a.name}</Badge>
                       ))}
                     </div>
-                    {t.source === "mine" && (
+                    {tpl.source === "mine" && (
                       <span
                         role="button"
-                        title="Delete this template"
+                        title={t("org.templateDeleteTitle")}
                         onClick={(e) => {
                           e.stopPropagation();
-                          void api.deleteTemplate(t.key).then(onChanged);
+                          void api.deleteTemplate(tpl.key).then(onChanged);
                         }}
                         className="absolute right-2 top-2 rounded px-1 text-ink-3 hover:bg-bad/15 hover:text-bad"
                       >
@@ -670,7 +682,7 @@ function TemplateList({ templates, onPick, onChanged, busy }: { templates: Templ
       )}
       <div className="flex flex-wrap items-center gap-3 text-xs text-ink-3">
         <label className="cursor-pointer text-accent hover:underline">
-          Import a template file…
+          {t("org.importTemplateFile")}
           <input
             type="file"
             accept=".json,application/json"
@@ -682,7 +694,7 @@ function TemplateList({ templates, onPick, onChanged, busy }: { templates: Templ
             }}
           />
         </label>
-        <span>More templates come in packs (Pantheon 1&apos;s are the Classic templates pack).</span>
+        <span>{t("org.templatesPacksNote")}</span>
         {note && <span className="text-ink-2">{note}</span>}
       </div>
     </div>

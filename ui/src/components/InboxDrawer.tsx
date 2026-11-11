@@ -6,12 +6,24 @@ import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
 import type { Approval, InboxItem } from "@/lib/types";
+import { useT } from "@/i18n";
 import { useOrg } from "@/store/org";
 import { useStudio } from "@/studio/store";
 import { AgentAvatar } from "./agent";
 import { Badge, Button, Drawer, Empty, Input, cx } from "./ui";
 
+/** The badge text for each inbox item kind. */
+const INBOX_KIND_LABELS: Record<InboxItem["kind"], string> = {
+  message: "shell.inbox.kindMessage",
+  approval: "shell.inbox.kindApproval",
+  feature_request: "shell.inbox.kindFeatureRequest",
+  error: "shell.inbox.kindError",
+  alert: "shell.inbox.kindAlert",
+  human: "shell.inbox.kindHuman",
+};
+
 export function InboxButton({ orgId }: { orgId: string }) {
+  const t = useT();
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<InboxItem[]>([]);
   const approvals = useOrg(useShallow((s) => Object.values(s.approvals)));
@@ -37,15 +49,15 @@ export function InboxButton({ orgId }: { orgId: string }) {
         <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
           <path d="M4 13h4l2 3h4l2-3h4M4 13l2.5-8h11L20 13v6H4z" strokeLinejoin="round" />
         </svg>
-        Inbox
+        {t("shell.inbox.title")}
         {count > 0 && <span className="rounded-full bg-accent-2 px-1.5 text-[11px] font-semibold text-white">{count}</span>}
       </button>
       <Drawer open={open} onClose={() => setOpen(false)} width="w-[520px]">
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
-          <div className="font-semibold">Inbox</div>
+          <div className="font-semibold">{t("shell.inbox.title")}</div>
           <div className="flex gap-2">
             <Button size="sm" variant="ghost" onClick={() => api.markRead(orgId).then(() => api.inbox(orgId).then(setItems))}>
-              Mark all read
+              {t("shell.inbox.markAllRead")}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
               ✕
@@ -55,11 +67,11 @@ export function InboxButton({ orgId }: { orgId: string }) {
         <div className="space-y-5 p-5">
           <section>
             <div className="mb-2 flex items-center justify-between">
-              <span className="text-xs font-medium uppercase tracking-wider text-ink-3">Waiting for your approval</span>
+              <span className="text-xs font-medium uppercase tracking-wider text-ink-3">{t("shell.inbox.waitingApproval")}</span>
               {approvals.length > 1 && <ApproveAllButton orgId={orgId} count={approvals.length} />}
             </div>
             {approvals.length === 0 ? (
-              <div className="text-sm text-ink-3">Nothing to approve.</div>
+              <div className="text-sm text-ink-3">{t("shell.inbox.nothingToApprove")}</div>
             ) : (
               <div className="space-y-3">
                 {approvals.map((a) => (
@@ -69,9 +81,9 @@ export function InboxButton({ orgId }: { orgId: string }) {
             )}
           </section>
           <section>
-            <div className="mb-2 text-xs font-medium uppercase tracking-wider text-ink-3">Recent</div>
+            <div className="mb-2 text-xs font-medium uppercase tracking-wider text-ink-3">{t("shell.inbox.recent")}</div>
             {items.filter((i) => i.kind !== "approval").length === 0 ? (
-              <Empty title="All caught up" />
+              <Empty title={t("shell.inbox.allCaughtUp")} />
             ) : (
               <div className="divide-y divide-line rounded-lg border border-line">
                 {items
@@ -90,6 +102,7 @@ export function InboxButton({ orgId }: { orgId: string }) {
 }
 
 function InboxRow({ item, orgId, onNavigate }: { item: InboxItem; orgId: string; onNavigate: () => void }) {
+  const t = useT();
   const href =
     item.kind === "message"
       ? `/org/${orgId}/comms`
@@ -118,7 +131,7 @@ function InboxRow({ item, orgId, onNavigate }: { item: InboxItem; orgId: string;
       {!item.read && <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-accent" />}
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-2">
-          <Badge tone={tone}>{item.kind.replace("_", " ")}</Badge>
+          <Badge tone={tone}>{t(INBOX_KIND_LABELS[item.kind])}</Badge>
           <span className="text-[11px] text-ink-3">{timeAgo(item.createdAt)}</span>
         </div>
         <div className={cx("mt-1 text-sm text-ink-2", item.kind === "alert" ? "line-clamp-4 whitespace-pre-wrap" : "line-clamp-2")}>{item.title}</div>
@@ -129,6 +142,7 @@ function InboxRow({ item, orgId, onNavigate }: { item: InboxItem; orgId: string;
 
 /** Approve every pending request at once (for an org, or one agent with ``agentId``). */
 export function ApproveAllButton({ orgId, count, agentId }: { orgId: string; count: number; agentId?: string }) {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   return (
     <Button
@@ -144,12 +158,13 @@ export function ApproveAllButton({ orgId, count, agentId }: { orgId: string; cou
         }
       }}
     >
-      Approve all ({count})
+      {t("shell.inbox.approveAll", { count })}
     </Button>
   );
 }
 
 export function ApprovalCard({ approval }: { approval: Approval }) {
+  const t = useT();
   const agent = useOrg((s) => s.agents[approval.agentId]);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<"approve" | "deny" | "always" | null>(null);
@@ -167,7 +182,7 @@ export function ApprovalCard({ approval }: { approval: Approval }) {
       <div className="flex items-center gap-2">
         <AgentAvatar agent={agent} size={22} />
         <span className="text-sm font-medium">{agent?.name ?? approval.agentId}</span>
-        <span className="text-sm text-ink-3">wants to run</span>
+        <span className="text-sm text-ink-3">{t("shell.inbox.wantsToRun")}</span>
         <code className="rounded bg-panel-2 px-1.5 py-0.5 font-mono text-xs text-warn">{approval.tool}</code>
         <span className="ml-auto text-[11px] text-ink-3">{timeAgo(approval.createdAt)}</span>
       </div>
@@ -179,12 +194,12 @@ export function ApprovalCard({ approval }: { approval: Approval }) {
         </pre>
       )}
       <div className="mt-2.5 flex gap-2">
-        <Input className="h-8 text-xs" placeholder="Optional note to the agent" value={note} onChange={(e) => setNote(e.target.value)} />
+        <Input className="h-8 text-xs" placeholder={t("shell.inbox.optionalNote")} value={note} onChange={(e) => setNote(e.target.value)} />
         <Button size="sm" variant="danger" onClick={() => decide(false)} loading={busy === "deny"}>
-          Deny
+          {t("shell.inbox.deny")}
         </Button>
         <Button size="sm" variant="ok" onClick={() => decide(true)} loading={busy === "approve"}>
-          Approve
+          {t("shell.inbox.approve")}
         </Button>
       </div>
       <div className="mt-1.5 text-right">
@@ -192,9 +207,9 @@ export function ApprovalCard({ approval }: { approval: Approval }) {
           className="text-[11px] text-ink-3 hover:text-ok cursor-pointer disabled:opacity-50"
           disabled={!!busy}
           onClick={() => decide(true, true)}
-          title={`Approve and stop asking about ${approval.tool} for ${agent?.name ?? "this agent"}`}
+          title={t("shell.inbox.alwaysAllowTitle", { tool: approval.tool, agent: agent?.name ?? t("shell.inbox.thisAgent") })}
         >
-          {busy === "always" ? "…" : `Approve & always allow ${approval.tool} for ${agent?.name ?? "this agent"}`}
+          {busy === "always" ? "…" : t("shell.inbox.alwaysAllow", { tool: approval.tool, agent: agent?.name ?? t("shell.inbox.thisAgent") })}
         </button>
       </div>
     </div>

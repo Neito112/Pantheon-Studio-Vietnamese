@@ -4,6 +4,7 @@
 import { useShallow } from "zustand/react/shallow";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useLocale, useT, formatDateTime } from "@/i18n";
 import { api } from "@/lib/api";
 import type { AgentLife, AgentSchedule, Message } from "@/lib/types";
 import { useOrg } from "@/store/org";
@@ -31,6 +32,7 @@ export function useDmMessages(agentId: string): Message[] {
 }
 
 export function AgentInspector({ agentId, onClose }: { agentId: string; onClose: () => void }) {
+  const t = useT();
   const agent = useOrg((s) => s.agents[agentId]);
   const orgId = useOrg((s) => s.orgId);
   const live = useOrg(useShallow((s) => liveFor(s, agentId)));
@@ -80,7 +82,7 @@ export function AgentInspector({ agentId, onClose }: { agentId: string; onClose:
                 {agent.team && ` · ${agent.team}`}
               </div>
             </div>
-            <button onClick={onClose} className="text-ink-3 hover:text-ink cursor-pointer" aria-label="Close">
+            <button onClick={onClose} className="text-ink-3 hover:text-ink cursor-pointer" aria-label={t("common.close")}>
               ✕
             </button>
           </div>
@@ -90,12 +92,12 @@ export function AgentInspector({ agentId, onClose }: { agentId: string; onClose:
           <div className="mt-3 flex flex-wrap gap-1.5">
             {live.status === "working" || live.status === "awaiting_approval" ? (
               <Button size="sm" variant="danger" loading={busy === "stop"} onClick={() => act("stop", () => api.stopAgent(agentId))}>
-                ■ Stop turn
+                {t("team.stopTurn")}
               </Button>
             ) : null}
             {(live.status === "error" || live.status === "retrying" || live.status === "cooling_down") && (
               <Button size="sm" variant="ok" loading={busy === "retry"} onClick={() => act("retry", () => api.retryAgent(agentId))}>
-                ↻ Retry now
+                {t("team.retryNow")}
               </Button>
             )}
             <Button
@@ -103,16 +105,16 @@ export function AgentInspector({ agentId, onClose }: { agentId: string; onClose:
               loading={busy === "pause"}
               onClick={() => act("pause", () => api.updateAgent(agentId, { status: agent.status === "active" ? "paused" : "active" }))}
             >
-              {agent.status === "active" ? "Pause" : "Resume"}
+              {agent.status === "active" ? t("common.pause") : t("common.resume")}
             </Button>
             <Link href={`/org/${orgId}/sessions?agent=${agentId}`}>
               <Button size="sm" variant="ghost">
-                Sessions →
+                {t("team.sessionsLink")}
               </Button>
             </Link>
             <Link href={`/org/${orgId}/team?agent=${agentId}`}>
               <Button size="sm" variant="ghost">
-                Configure →
+                {t("team.configureLink")}
               </Button>
             </Link>
           </div>
@@ -131,7 +133,7 @@ export function AgentInspector({ agentId, onClose }: { agentId: string; onClose:
         {(live.status === "working" || stream) && (
           <div className="border-b border-line p-4">
             <div className="mb-1.5 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-ink-3">
-              Live
+              {t("team.live")}
               {live.tool && <Badge tone="accent">🛠 {live.tool}</Badge>}
             </div>
             {stream && <LiveThinking text={live.thinking} />}
@@ -142,7 +144,7 @@ export function AgentInspector({ agentId, onClose }: { agentId: string; onClose:
               </div>
             ) : (
               <div className="mt-1.5 max-h-40 overflow-y-auto rounded-md bg-bg p-2.5 font-mono text-xs leading-relaxed text-ink-2 whitespace-pre-wrap">
-                {stream ? stream.slice(-1500) : live.tool ? `running ${live.tool}…` : "thinking…"}
+                {stream ? stream.slice(-1500) : live.tool ? t("team.runningTool", { tool: live.tool }) : t("team.thinkingNow")}
               </div>
             )}
           </div>
@@ -151,7 +153,7 @@ export function AgentInspector({ agentId, onClose }: { agentId: string; onClose:
         <Schedules agentId={agentId} />
 
         <details className="border-b border-line">
-          <summary className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider text-ink-3 hover:text-ink-2">Files &amp; documents</summary>
+          <summary className="cursor-pointer select-none px-4 py-3 text-xs font-medium uppercase tracking-wider text-ink-3 hover:text-ink-2">{t("team.filesAndDocuments")}</summary>
           <div className="px-4 pb-4">
             <AgentFiles orgId={orgId} agentId={agentId} agentName={agent.name} compact />
           </div>
@@ -159,7 +161,7 @@ export function AgentInspector({ agentId, onClose }: { agentId: string; onClose:
 
         {tasks.length > 0 && (
           <div className="border-b border-line p-4">
-            <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-ink-3">Open tasks</div>
+            <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-ink-3">{t("team.openTasks")}</div>
             <div className="space-y-1">
               {tasks.map((t) => (
                 <Link key={t.id} href={`/org/${orgId}/board?task=${t.id}`} className="flex items-center gap-2 rounded px-1.5 py-1 text-sm hover:bg-panel-2">
@@ -177,20 +179,20 @@ export function AgentInspector({ agentId, onClose }: { agentId: string; onClose:
         <ContextControls agentId={agentId} name={agent.name} className="border-b border-line px-4 py-2" />
       </div>
       <div className="flex shrink-0 items-center justify-between px-4 pt-3 text-xs font-medium uppercase tracking-wider text-ink-3">
-        Conversation with you
-        <Toggle checked={speakReplies || liveOn} onChange={setSpeakReplies} label={<span className="normal-case tracking-normal">Speak replies</span>} />
+        {t("team.conversationWithYou")}
+        <Toggle checked={speakReplies || liveOn} onChange={setSpeakReplies} label={<span className="normal-case tracking-normal">{t("team.speakReplies")}</span>} />
       </div>
       <div className="flex min-h-28 flex-1 flex-col">
         <MessageList
           messages={messages}
           agents={agents}
           compact
-          empty={<div className="py-8 text-center text-sm text-ink-3">Say hello, give {agent.name} a goal, or ask what they&apos;re working on.</div>}
+          empty={<div className="py-8 text-center text-sm text-ink-3">{t("team.emptyConversation", { name: agent.name })}</div>}
         />
       </div>
       <Composer
-        placeholder={`Message ${agent.name}…`}
-        onSend={(t, files, o) => api.send(orgId, { to: agentId, content: t, attachments: files, steer: o?.steer }).then(() => undefined)}
+        placeholder={t("team.messagePlaceholder", { name: agent.name })}
+        onSend={(msg, files, o) => api.send(orgId, { to: agentId, content: msg, attachments: files, steer: o?.steer }).then(() => undefined)}
         working={live.status === "working" ? { name: agent.name } : null}
         attach={{ orgId, agentId }}
         live={{ orgId, agentId, agentName: agent.name }}
@@ -200,6 +202,8 @@ export function AgentInspector({ agentId, onClose }: { agentId: string; onClose:
   );
 }
 function Schedules({ agentId }: { agentId: string }) {
+  const t = useT();
+  const locale = useLocale();
   const [items, setItems] = useState<AgentSchedule[]>([]);
   const turns = useOrg((s) => s.turnsVersion);
   useEffect(() => {
@@ -208,16 +212,18 @@ function Schedules({ agentId }: { agentId: string }) {
   if (!items.length) return null;
   return (
     <div className="border-b border-line p-4">
-      <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-ink-3">Schedules</div>
+      <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-ink-3">{t("team.schedules")}</div>
       <div className="space-y-1">
         {items.map((s) => (
           <div key={s.id} className="flex items-center gap-2 text-sm">
-            <span className="shrink-0 rounded bg-panel-2 px-1.5 font-mono text-[11px] text-ink-2">{s.everySeconds ? `every ${s.everySeconds} s` : (s.cron ?? "once")}</span>
+            <span className="shrink-0 rounded bg-panel-2 px-1.5 font-mono text-[11px] text-ink-2">
+              {s.everySeconds ? t("team.scheduleEverySeconds", { count: s.everySeconds }) : (s.cron ?? t("team.scheduleOnce"))}
+            </span>
             <span className="min-w-0 flex-1 truncate" title={s.message}>
               {s.message}
             </span>
-            <span className="shrink-0 text-[11px] text-ink-3">{s.nextRunAt ? new Date(s.nextRunAt).toLocaleString([], { dateStyle: "short", timeStyle: "short" }) : ""}</span>
-            <button className="text-ink-3 hover:text-bad cursor-pointer" title="Cancel" onClick={() => api.cancelSchedule(s.id).then(() => setItems((x) => x.filter((y) => y.id !== s.id)))}>
+            <span className="shrink-0 text-[11px] text-ink-3">{s.nextRunAt ? formatDateTime(locale, s.nextRunAt) : ""}</span>
+            <button className="text-ink-3 hover:text-bad cursor-pointer" title={t("team.scheduleCancelTitle")} onClick={() => api.cancelSchedule(s.id).then(() => setItems((x) => x.filter((y) => y.id !== s.id)))}>
               ✕
             </button>
           </div>
@@ -227,21 +233,22 @@ function Schedules({ agentId }: { agentId: string }) {
   );
 }
 
-const MOOD: Record<AgentLife["mood"], { label: string; tone: "ok" | "info" | "neutral" | "warn" | "bad" }> = {
-  great: { label: "😄 great", tone: "ok" },
-  good: { label: "🙂 good", tone: "ok" },
-  okay: { label: "😐 okay", tone: "neutral" },
-  low: { label: "😟 low", tone: "warn" },
-  miserable: { label: "😣 miserable", tone: "bad" },
-};
+const MOOD = (t: (key: string) => string): Record<AgentLife["mood"], { label: string; tone: "ok" | "info" | "neutral" | "warn" | "bad" }> => ({
+  great: { label: t("team.moodGreat"), tone: "ok" },
+  good: { label: t("team.moodGood"), tone: "ok" },
+  okay: { label: t("team.moodOkay"), tone: "neutral" },
+  low: { label: t("team.moodLow"), tone: "warn" },
+  miserable: { label: t("team.moodMiserable"), tone: "bad" },
+});
 
 /** A resident's needs, mood and wants (organizations where life is on). */
 function LifePanel({ life }: { life: AgentLife }) {
-  const mood = MOOD[life.mood] ?? MOOD.okay;
+  const t = useT();
+  const mood = MOOD(t)[life.mood] ?? MOOD(t).okay;
   return (
     <div className="space-y-2 border-b border-line p-4 text-xs">
       <div className="flex items-center gap-2">
-        <span className="font-semibold text-ink">Life</span>
+        <span className="font-semibold text-ink">{t("team.life")}</span>
         <Badge tone={mood.tone}>{mood.label}</Badge>
         {life.doing && <span className="truncate text-ink-3">· {life.doing}</span>}
       </div>
@@ -249,7 +256,7 @@ function LifePanel({ life }: { life: AgentLife }) {
         {Object.entries(life.needs).map(([name, v]) => (
           <div key={name}>
             <div className="flex justify-between text-ink-3">
-              <span className="capitalize">{name}</span>
+              <span className="capitalize">{t(`team.need.${name}` as string)}</span>
               <span>{v}</span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full bg-line">
@@ -261,7 +268,7 @@ function LifePanel({ life }: { life: AgentLife }) {
       {life.traits.length > 0 && <div className="text-ink-3">{life.traits.join(" · ")}</div>}
       {life.wants.length > 0 && (
         <div>
-          <div className="text-ink-3">Wants</div>
+          <div className="text-ink-3">{t("team.wants")}</div>
           <ul className="list-disc pl-4 text-ink-2">
             {life.wants.map((w) => (
               <li key={w.id}>{w.text}</li>
@@ -269,7 +276,7 @@ function LifePanel({ life }: { life: AgentLife }) {
           </ul>
         </div>
       )}
-      {life.done.length > 0 && <div className="text-ink-3">Made happen: {life.done.map((d) => d.text).join("; ")}</div>}
+      {life.done.length > 0 && <div className="text-ink-3">{t("team.madeHappen", { list: life.done.map((d) => d.text).join("; ") })}</div>}
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { Html, OrbitControls } from "@react-three/drei";
 import { Canvas } from "@react-three/fiber";
 import dynamic from "next/dynamic";
 import { Suspense } from "react";
+import { useT } from "@/i18n";
 import { allModels, footprint, useModelParts } from "@/office/models";
 import { useOfficeReady } from "@/office/registry";
 
@@ -33,9 +34,10 @@ function Model({ model, x, z }: { model: string; x: number; z: number }) {
 }
 
 function Catalog() {
+  const t = useT();
   const ready = useOfficeReady();
   const filter = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("q") ?? "" : "";
-  if (!ready) return <div style={{ padding: 24 }}>Loading the office packs…</div>;
+  if (!ready) return <div style={{ padding: 24 }}>{t("packs.loadingOffice")}</div>;
   // ?q=nature/ shows another kit; the default is the furniture.
   const keys = allModels().filter((k) => (filter.includes("/") ? k.startsWith(filter) : k.startsWith("furniture/") && k.includes(filter)));
   const cols = 8;

@@ -10,6 +10,7 @@ import { LibraryPicker } from "@/components/LibraryPicker";
 import { McpServersPanel } from "@/components/settings/McpServersPanel";
 import { SecretsPanel } from "@/components/settings/SecretsPanel";
 import { Button, Card, ErrorNote, Field, Input, Select, Textarea } from "@/components/ui";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import { inDesktopApp } from "@/lib/engine";
 import { pickFolder } from "@/lib/folders";
@@ -17,6 +18,7 @@ import type { Org, Provider } from "@/lib/types";
 import { useOrg } from "@/store/org";
 
 export default function OrgSettingsPage() {
+  const t = useT();
   const org = useOrg((s) => s.org);
   const router = useRouter();
   const [draft, setDraft] = useState<Org | null>(org);
@@ -70,19 +72,21 @@ export default function OrgSettingsPage() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl space-y-6 px-6 py-8">
         <Card className="p-5">
-          <div className="mb-4 text-sm font-semibold">Organization</div>
+          <div className="mb-4 text-sm font-semibold">{t("settings.org.title")}</div>
           <div className="grid gap-4">
-            <Field label="Name">
+            <Field label={t("settings.org.name")}>
               <Input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} />
             </Field>
-            <Field label="Description" hint="Given to every agent as shared context">
+            <Field label={t("settings.org.description")} hint={t("settings.org.descriptionHint")}>
               <Textarea rows={4} value={draft.description} onChange={(e) => setDraft({ ...draft, description: e.target.value })} />
             </Field>
-            <Field label="Workspace folder" hint="The folder on this computer where agents read, write and run commands">
+            <Field label={t("settings.org.workspaceFolder")} hint={t("settings.org.workspaceHint")}>
               <div className="flex gap-2">
-                <Input value={draft.workspace ?? ""} onChange={(e) => setDraft({ ...draft, workspace: e.target.value || null })} placeholder="(a fresh folder under the workspace root)" />
+                <Input value={draft.workspace ?? ""} onChange={(e) => setDraft({ ...draft, workspace: e.target.value || null })} placeholder={t("settings.org.workspacePlaceholder")} />
                 {inDesktopApp() && (
-                  <Button onClick={() => void pickFolder("The organization's workspace").then((p) => p && setDraft({ ...draft, workspace: p }))}>Choose…</Button>
+                  <Button onClick={() => void pickFolder(t("settings.org.chooseFolderTitle")).then((p) => p && setDraft({ ...draft, workspace: p }))}>
+                    {t("settings.org.chooseFolder")}
+                  </Button>
                 )}
               </div>
             </Field>
@@ -90,155 +94,149 @@ export default function OrgSettingsPage() {
         </Card>
 
         <Card className="p-5">
-          <div className="mb-4 text-sm font-semibold">How agents work together</div>
+          <div className="mb-4 text-sm font-semibold">{t("settings.org.howTogether")}</div>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="How it works" hint="A flow org works only through its flows (the Flows pane)">
+            <Field label={t("settings.org.howItWorks")} hint={t("settings.org.howItWorksHint")}>
               <Select value={s.mode ?? "team"} onChange={(e) => setS({ mode: e.target.value as "team" | "flow" })}>
-                <option value="team">A team: agents plan, talk and delegate</option>
-                <option value="flow">A flow: work runs as a graph of steps</option>
+                <option value="team">{t("settings.org.modeTeam")}</option>
+                <option value="flow">{t("settings.org.modeFlow")}</option>
               </Select>
             </Field>
-            <Field label="Communication">
+            <Field label={t("settings.org.communication")}>
               <Select value={s.comm_policy} onChange={(e) => setS({ comm_policy: e.target.value as Org["settings"]["comm_policy"] })}>
-                <option value="open">Open — anyone can message anyone</option>
-                <option value="structured">Structured — only related agents / shared channels</option>
+                <option value="open">{t("settings.org.commOpen")}</option>
+                <option value="structured">{t("settings.org.commStructured")}</option>
               </Select>
             </Field>
-            <Field label="Max message chain depth" hint="Stops runaway agent loops">
+            <Field label={t("settings.org.maxChainDepth")} hint={t("settings.org.maxChainDepthHint")}>
               <Input type="number" value={s.max_chain_depth} onChange={(e) => setS({ max_chain_depth: Number(e.target.value) })} />
             </Field>
-            <Field label="Daily token budget" hint="0 = unlimited; the org pauses when reached">
+            <Field label={t("settings.org.dailyTokenBudget")} hint={t("settings.org.dailyTokenBudgetHint")}>
               <Input type="number" value={s.daily_token_budget} onChange={(e) => setS({ daily_token_budget: Number(e.target.value) })} />
             </Field>
-            <Field label="Agents working at once" hint="In this organization; 0 = only the global limit (Settings > Agents)">
+            <Field label={t("settings.org.maxConcurrent")} hint={t("settings.org.maxConcurrentHint")}>
               <Input type="number" min={0} max={64} value={s.max_concurrent ?? 0} onChange={(e) => setS({ max_concurrent: Math.max(0, Math.min(64, Math.round(Number(e.target.value) || 0))) })} />
             </Field>
-            <Field label="Writing style" hint="For every agent's messages and documents (agents can also turn STE on one by one)">
+            <Field label={t("settings.org.writingStyle")} hint={t("settings.org.writingStyleHint")}>
               <Select value={s.writing ?? "plain"} onChange={(e) => setS({ writing: e.target.value as "plain" | "ste" })}>
-                <option value="plain">Plain (each agent&apos;s own)</option>
-                <option value="ste">ASD-STE100 Simplified Technical English</option>
+                <option value="plain">{t("settings.org.writingPlain")}</option>
+                <option value="ste">{t("settings.org.writingSte")}</option>
               </Select>
             </Field>
-            <Field label="Shell commands" hint="run_command and computer_shell, for every agent">
+            <Field label={t("settings.org.shellCommands")} hint={t("settings.org.shellCommandsHint")}>
               <Select value={s.shell_approval ?? "ask"} onChange={(e) => setS({ shell_approval: e.target.value as "ask" | "auto" })}>
-                <option value="ask">Ask me before each command</option>
-                <option value="auto">Run without asking</option>
+                <option value="ask">{t("settings.org.shellAsk")}</option>
+                <option value="auto">{t("settings.org.shellAuto")}</option>
               </Select>
             </Field>
           </div>
           {s.shell_approval === "auto" && (
             <div className="mt-3 rounded-md border border-warn/30 bg-warn/10 px-3 py-2 text-xs text-warn">
-              Agents can run any command in their workspace without your approval. Agents whose shell tools are set to &quot;deny&quot; on the Team tab still
-              can&apos;t.
+              {t("settings.org.shellAutoWarning")}
             </div>
           )}
         </Card>
 
         <Card className="p-5">
-          <div className="mb-1 text-sm font-semibold">Task permissions (org default)</div>
-          <div className="mb-4 text-xs text-ink-3">Individual agents can override these on their Permissions tab.</div>
+          <div className="mb-1 text-sm font-semibold">{t("settings.org.taskPermissions")}</div>
+          <div className="mb-4 text-xs text-ink-3">{t("settings.org.taskPermissionsNote")}</div>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Create tasks">
+            <Field label={t("settings.org.createTasks")}>
               <Select value={String(s.task_policy?.create ?? true)} onChange={(e) => setS({ task_policy: { ...s.task_policy, create: e.target.value === "true" } })}>
-                <option value="true">Everyone may create tasks</option>
-                <option value="false">Only agents granted it individually</option>
+                <option value="true">{t("settings.org.createTasksEveryone")}</option>
+                <option value="false">{t("settings.org.createTasksGranted")}</option>
               </Select>
             </Field>
-            <Field label="Assign work to">
+            <Field label={t("settings.org.assignWorkTo")}>
               <Select value={s.task_policy?.assign ?? "anyone"} onChange={(e) => setS({ task_policy: { ...s.task_policy, assign: e.target.value as "anyone" } })}>
-                <option value="anyone">Anyone</option>
-                <option value="reports">Themselves and people they manage</option>
-                <option value="self">Only themselves</option>
+                <option value="anyone">{t("settings.org.assignAnyone")}</option>
+                <option value="reports">{t("settings.org.assignReports")}</option>
+                <option value="self">{t("settings.org.assignSelf")}</option>
               </Select>
             </Field>
-            <Field label="Change tasks">
+            <Field label={t("settings.org.changeTasks")}>
               <Select value={s.task_policy?.edit ?? "any"} onChange={(e) => setS({ task_policy: { ...s.task_policy, edit: e.target.value as "any" } })}>
-                <option value="any">Any task</option>
-                <option value="involved">Tasks they&apos;re involved in</option>
-                <option value="assigned">Only tasks assigned to them</option>
+                <option value="any">{t("settings.org.changeAny")}</option>
+                <option value="involved">{t("settings.org.changeInvolved")}</option>
+                <option value="assigned">{t("settings.org.changeAssigned")}</option>
               </Select>
             </Field>
-            <Field label="Review before done">
+            <Field label={t("settings.org.reviewBeforeDone")}>
               <Select value={String(s.task_policy?.require_review ?? true)} onChange={(e) => setS({ task_policy: { ...s.task_policy, require_review: e.target.value === "true" } })}>
-                <option value="true">Required when a task has a reviewer</option>
-                <option value="false">Assignees may close their own tasks</option>
+                <option value="true">{t("settings.org.reviewRequired")}</option>
+                <option value="false">{t("settings.org.reviewOptional")}</option>
               </Select>
             </Field>
           </div>
         </Card>
 
         <Card className="p-5">
-          <div className="mb-4 text-sm font-semibold">Meetings</div>
+          <div className="mb-4 text-sm font-semibold">{t("settings.org.meetings")}</div>
           <div className="grid gap-4 md:grid-cols-3">
-            <Field label="Max participants">
+            <Field label={t("settings.org.maxParticipants")}>
               <Input type="number" min={2} max={20} value={s.meetings?.max_participants ?? 8} onChange={(e) => setS({ meetings: { ...s.meetings, max_participants: Number(e.target.value) } })} />
             </Field>
-            <Field label="Max rounds">
+            <Field label={t("settings.org.maxRounds")}>
               <Input type="number" min={1} max={6} value={s.meetings?.max_rounds ?? 3} onChange={(e) => setS({ meetings: { ...s.meetings, max_rounds: Number(e.target.value) } })} />
             </Field>
-            <Field label="Default rounds">
+            <Field label={t("settings.org.defaultRounds")}>
               <Input type="number" min={1} max={6} value={s.meetings?.default_rounds ?? 2} onChange={(e) => setS({ meetings: { ...s.meetings, default_rounds: Number(e.target.value) } })} />
             </Field>
-            <Field label="Default style">
+            <Field label={t("settings.org.defaultStyle")}>
               <Select value={s.meetings?.default_style ?? "discussion"} onChange={(e) => setS({ meetings: { ...s.meetings, default_style: e.target.value } })}>
                 {["discussion", "decision", "brainstorm", "standup", "review"].map((v) => (
                   <option key={v}>{v}</option>
                 ))}
               </Select>
             </Field>
-            <Field label="Action items">
+            <Field label={t("settings.org.actionItems")}>
               <Select value={String(s.meetings?.create_tasks ?? false)} onChange={(e) => setS({ meetings: { ...s.meetings, create_tasks: e.target.value === "true" } })}>
-                <option value="false">Stay in the minutes</option>
-                <option value="true">Become assigned tasks</option>
+                <option value="false">{t("settings.org.actionItemsMinutes")}</option>
+                <option value="true">{t("settings.org.actionItemsTasks")}</option>
               </Select>
             </Field>
           </div>
         </Card>
 
         <Card className="p-5">
-          <div className="mb-1 text-sm font-semibold">Physical space</div>
-          <div className="mb-4 text-xs text-ink-3">
-            Agents have bodies in the office (or scene): they know where they are, can walk around, talk out loud to whoever is in the room, and pick up, hand over and use
-            objects. Ask them &ldquo;come to the lounge&rdquo; or &ldquo;what&apos;s in the kitchen?&rdquo;.
-          </div>
+          <div className="mb-1 text-sm font-semibold">{t("settings.org.physicalSpace")}</div>
+          <div className="mb-4 text-xs text-ink-3">{t("settings.org.physicalSpaceNote")}</div>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Bodies & presence tools">
+            <Field label={t("settings.org.bodiesTools")}>
               <Select value={String(s.world?.enabled ?? true)} onChange={(e) => setS({ world: { ...s.world, enabled: e.target.value === "true" } })}>
-                <option value="true">On — agents are aware of the space</option>
-                <option value="false">Off — agents only work (fewer tokens)</option>
+                <option value="true">{t("settings.org.bodiesOn")}</option>
+                <option value="false">{t("settings.org.bodiesOff")}</option>
               </Select>
             </Field>
-            <Field label="Witnessing" hint="Wakes agents when something happens near them">
+            <Field label={t("settings.org.witnessing")} hint={t("settings.org.witnessingHint")}>
               <Select value={String(s.world?.witness ?? false)} onChange={(e) => setS({ world: { ...s.world, witness: e.target.value === "true" } })}>
-                <option value="false">Only speech and hand-overs reach others</option>
-                <option value="true">People notice movements and actions in their room</option>
+                <option value="false">{t("settings.org.witnessOff")}</option>
+                <option value="true">{t("settings.org.witnessOn")}</option>
               </Select>
             </Field>
           </div>
-          <Field label="World rules" hint="The scene's premise and rules, added to every agent's prompt (for simulations)">
+          <Field label={t("settings.org.worldRules")} hint={t("settings.org.worldRulesHint")}>
             <Textarea
               rows={3}
               value={s.world?.rules ?? ""}
               onChange={(e) => setS({ world: { ...s.world, rules: e.target.value } })}
-              placeholder="e.g. It's a Saturday market in a small town. Officers patrol; civilians go about their day."
+              placeholder={t("settings.org.worldRulesPlaceholder")}
             />
           </Field>
         </Card>
 
         <Card className="p-5">
-          <div className="mb-1 text-sm font-semibold">Stage libraries</div>
-          <div className="mb-4 text-xs text-ink-3">
-            What agents&apos; Stage pages may import. Agents read the docs only for these; one agent can be given its own set on the Team tab.
-          </div>
+          <div className="mb-1 text-sm font-semibold">{t("settings.org.stageLibraries")}</div>
+          <div className="mb-4 text-xs text-ink-3">{t("settings.org.stageLibrariesNote")}</div>
           <LibraryPicker value={s.libraries} onChange={(libraries) => setS({ libraries })} />
         </Card>
 
         <Card className="p-5">
-          <div className="mb-4 text-sm font-semibold">Default model for this org</div>
+          <div className="mb-4 text-sm font-semibold">{t("settings.org.defaultModelTitle")}</div>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Provider">
+            <Field label={t("settings.org.provider")}>
               <Select value={dm.provider_id ?? ""} onChange={(e) => setS({ default_model: { ...dm, provider_id: e.target.value || undefined, model: undefined } })}>
-                <option value="">Global default</option>
+                <option value="">{t("settings.org.globalDefault")}</option>
                 {providers.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -246,8 +244,8 @@ export default function OrgSettingsPage() {
                 ))}
               </Select>
             </Field>
-            <Field label="Model">
-              <Input list="org-models" value={dm.model ?? ""} onChange={(e) => setS({ default_model: { ...dm, model: e.target.value || undefined } })} placeholder={provider?.defaultModel ?? "provider default"} />
+            <Field label={t("settings.org.model")}>
+              <Input list="org-models" value={dm.model ?? ""} onChange={(e) => setS({ default_model: { ...dm, model: e.target.value || undefined } })} placeholder={provider?.defaultModel ?? t("settings.org.providerDefault")} />
               <datalist id="org-models">
                 {(provider?.models ?? []).map((m) => (
                   <option key={m.id} value={m.id} />
@@ -258,14 +256,12 @@ export default function OrgSettingsPage() {
         </Card>
 
         <Card className="p-5">
-          <div className="mb-1 text-sm font-semibold">Acceptance check model</div>
-          <div className="mb-4 text-xs text-ink-3">
-            The check of finished work runs on this model. A model unlike the builders&apos; finds what they missed; leave it empty to use the model of whoever hands the work in.
-          </div>
+          <div className="mb-1 text-sm font-semibold">{t("settings.org.checkerModelTitle")}</div>
+          <div className="mb-4 text-xs text-ink-3">{t("settings.org.checkerModelNote")}</div>
           <div className="grid gap-4 md:grid-cols-2">
-            <Field label="Provider">
+            <Field label={t("settings.org.provider")}>
               <Select value={cm.provider_id ?? ""} onChange={(e) => setCm({ ...cm, provider_id: e.target.value || undefined, model: undefined })}>
-                <option value="">Same as the builder</option>
+                <option value="">{t("settings.org.sameAsBuilder")}</option>
                 {providers.map((p) => (
                   <option key={p.id} value={p.id}>
                     {p.name}
@@ -273,8 +269,8 @@ export default function OrgSettingsPage() {
                 ))}
               </Select>
             </Field>
-            <Field label="Model">
-              <Input list="checker-models" value={cm.model ?? ""} disabled={!cm.provider_id} onChange={(e) => setCm({ ...cm, model: e.target.value || undefined })} placeholder={checkerProvider?.defaultModel ?? "provider default"} />
+            <Field label={t("settings.org.model")}>
+              <Input list="checker-models" value={cm.model ?? ""} disabled={!cm.provider_id} onChange={(e) => setCm({ ...cm, model: e.target.value || undefined })} placeholder={checkerProvider?.defaultModel ?? t("settings.org.providerDefault")} />
               <datalist id="checker-models">
                 {(checkerProvider?.models ?? []).map((m) => (
                   <option key={m.id} value={m.id} />
@@ -286,58 +282,52 @@ export default function OrgSettingsPage() {
 
         <div className="flex items-center gap-3">
           <Button variant="primary" onClick={save}>
-            Save settings
+            {t("settings.org.saveSettings")}
           </Button>
-          {saved && <span className="text-sm text-ok">Saved</span>}
+          {saved && <span className="text-sm text-ok">{t("settings.org.saved")}</span>}
           <ErrorNote error={error} />
         </div>
 
         <Card className="p-5">
-          <div className="mb-1 text-sm font-semibold">Shared files</div>
-          <div className="mb-4 text-xs text-ink-3">Documents and images every agent in this organization can read. To give something to just one agent, use its Files tab on Team or drop it in your chat with them.</div>
+          <div className="mb-1 text-sm font-semibold">{t("settings.org.sharedFiles")}</div>
+          <div className="mb-4 text-xs text-ink-3">{t("settings.org.sharedFilesNote")}</div>
           <AgentFiles orgId={org.id} agentId={null} />
         </Card>
 
         <Card className="p-5">
-          <div className="mb-1 text-sm font-semibold">Activities</div>
-          <div className="mb-4 text-xs text-ink-3">Recurring happenings: participants are gathered in a room (optional) and told what&apos;s going on.</div>
+          <div className="mb-1 text-sm font-semibold">{t("settings.org.activities")}</div>
+          <div className="mb-4 text-xs text-ink-3">{t("settings.org.activitiesNote")}</div>
           <ActivitiesPanel orgId={org.id} />
         </Card>
 
         <Card className="p-5">
-          <div className="mb-1 text-sm font-semibold">Secrets</div>
-          <div className="mb-4 text-xs text-ink-3">
-            API keys and tokens agents use by name ({"{{secret:NAME}}"}) without ever seeing them. Values are encrypted and masked out of every transcript, record
-            and log. Never paste a credential into a chat.
-          </div>
+          <div className="mb-1 text-sm font-semibold">{t("settings.org.secrets")}</div>
+          <div className="mb-4 text-xs text-ink-3">{t("settings.org.secretsNote")}</div>
           <SecretsPanel orgId={org.id} />
         </Card>
 
         <Card className="p-5">
-          <div className="mb-1 text-sm font-semibold">MCP servers for this organization</div>
-          <div className="mb-4 text-xs text-ink-3">Global servers (Settings) are available too. Grant them to agents on the Team tab.</div>
+          <div className="mb-1 text-sm font-semibold">{t("settings.org.mcpServers")}</div>
+          <div className="mb-4 text-xs text-ink-3">{t("settings.org.mcpServersNote")}</div>
           <McpServersPanel orgId={org.id} />
         </Card>
 
         <Card className="p-5">
-          <div className="mb-3 text-sm font-semibold">Save as a template</div>
-          <p className="mb-3 text-sm text-ink-2">
-            Keep this organization as one of your templates (its agents, personas, tools, structure, flows and office; not its work, secrets or history), to make
-            more like it from New organization. Download it to share it: anyone can import the file there.
-          </p>
+          <div className="mb-3 text-sm font-semibold">{t("settings.org.templateTitle")}</div>
+          <p className="mb-3 text-sm text-ink-2">{t("settings.org.templateNote")}</p>
           <SaveTemplate orgId={org.id} defaultName={org.name} />
           <div className="mt-3">
             <Button variant="ghost" onClick={exportJson}>
-              Download as a file
+              {t("settings.org.templateDownload")}
             </Button>
           </div>
         </Card>
 
         <Card className="border-bad/30 p-5">
-          <div className="mb-3 text-sm font-semibold text-bad">Delete organization</div>
-          <p className="mb-3 text-sm text-ink-2">Permanently deletes agents, conversations, tasks and history. Workspace files on disk are not touched.</p>
+          <div className="mb-3 text-sm font-semibold text-bad">{t("settings.org.deleteTitle")}</div>
+          <p className="mb-3 text-sm text-ink-2">{t("settings.org.deleteNote")}</p>
           <Button variant="danger" onClick={() => setDeleting(true)}>
-            Delete {org.name}…
+            {t("settings.org.deleteButton", { name: org.name })}
           </Button>
         </Card>
         <DeleteOrgDialog org={org} open={deleting} onClose={() => setDeleting(false)} onDeleted={() => router.push("/")} />
@@ -347,19 +337,20 @@ export default function OrgSettingsPage() {
 }
 
 function SaveTemplate({ orgId, defaultName }: { orgId: string; defaultName: string }) {
+  const t = useT();
   const [name, setName] = useState(defaultName);
   const [state, setState] = useState<{ ok: boolean; text: string } | null>(null);
   const save = () =>
     api.saveAsTemplate(orgId, name.trim()).then(
-      (t) => setState({ ok: true, text: `Saved as "${t.name}": it's under Your templates when you make a new organization.` }),
+      (tpl) => setState({ ok: true, text: t("settings.org.templateSaved", { name: tpl.name }) }),
       (e: Error) => setState({ ok: false, text: e.message }),
     );
   return (
     <div className="grid gap-2">
       <div className="flex gap-2">
-        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Template name" className="flex-1" />
+        <Input value={name} onChange={(e) => setName(e.target.value)} placeholder={t("settings.org.templateName")} className="flex-1" />
         <Button variant="primary" onClick={save} disabled={!name.trim()}>
-          Save as template
+          {t("settings.org.templateSave")}
         </Button>
       </div>
       {state && <div className={state.ok ? "text-sm text-ok" : "text-sm text-bad"}>{state.text}</div>}

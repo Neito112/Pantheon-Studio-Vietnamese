@@ -10,6 +10,7 @@ import { ROOM_COLORS, roomWalls, type FloorStyle, type OfficeDesign, type Placed
 import { FurnitureLayer } from "./Furniture";
 import { themeOf, type Theme } from "./themes";
 import { engineHttp } from "@/lib/engine";
+import { useT } from "@/i18n";
 
 const FLOOR_COLORS: Record<FloorStyle, [string, string]> = {
   oak: ["#c8a57a", "#b8925f"],
@@ -242,14 +243,14 @@ function RoomView({ room, theme }: { room: Room; theme: Theme }) {
 }
 
 const COLS: { key: Task["status"]; color: string; label: string }[] = [
-  { key: "todo", color: "#9aa3b2", label: "To do" },
-  { key: "in_progress", color: "#8b7cff", label: "Doing" },
-  { key: "blocked", color: "#f2667a", label: "Blocked" },
-  { key: "review", color: "#f5b454", label: "Review" },
-  { key: "done", color: "#3ecf8e", label: "Done" },
+  { key: "todo", color: "#9aa3b2", label: "office.board.todo" },
+  { key: "in_progress", color: "#8b7cff", label: "office.board.doing" },
+  { key: "blocked", color: "#f2667a", label: "office.board.blocked" },
+  { key: "review", color: "#f5b454", label: "office.board.review" },
+  { key: "done", color: "#3ecf8e", label: "office.board.done" },
 ];
 
-function boardTexture(tasks: Task[]): THREE.CanvasTexture {
+function boardTexture(tasks: Task[], translate: ReturnType<typeof useT>): THREE.CanvasTexture {
   const c = document.createElement("canvas");
   c.width = 1024;
   c.height = 512;
@@ -265,7 +266,7 @@ function boardTexture(tasks: Task[]): THREE.CanvasTexture {
     const items = tasks.filter((t) => t.status === col.key);
     g.fillStyle = "#2b303a";
     g.font = "700 30px system-ui, sans-serif";
-    g.fillText(`${col.label} · ${items.length}`, x0 + 14, 52);
+    g.fillText(`${translate(col.label)} · ${items.length}`, x0 + 14, 52);
     if (ci > 0) {
       g.fillStyle = "#e1e3e8";
       g.fillRect(x0, 70, 3, 420);
@@ -289,10 +290,11 @@ function boardTexture(tasks: Task[]): THREE.CanvasTexture {
 }
 
 export function TaskBoards({ items, tasks, onClick }: { items: PlacedItem[]; tasks: Task[]; onClick?: () => void }) {
+  const t = useT();
   const boards = items.filter((i) => CATALOG[i.kind]?.special === "taskboard");
   const sig = tasks.map((t) => `${t.id}:${t.status}`).join("|");
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const tex = useMemo(() => boardTexture(tasks), [sig]);
+  const tex = useMemo(() => boardTexture(tasks, t), [sig, t]);
   return (
     <>
       {boards.map((b) => (
@@ -354,7 +356,7 @@ export function Whiteboards({
 
 const blankBoard = (() => {
   let tex: THREE.CanvasTexture | null = null;
-  return (title: string) => {
+  return (title: string, hint: string) => {
     const c = document.createElement("canvas");
     c.width = 512;
     c.height = 320;
@@ -366,7 +368,7 @@ const blankBoard = (() => {
     g.textAlign = "center";
     g.fillText(title, 256, 150);
     g.font = "22px ui-sans-serif, system-ui";
-    g.fillText("click to draw", 256, 190);
+    g.fillText(hint, 256, 190);
     tex?.dispose();
     tex = new THREE.CanvasTexture(c);
     tex.colorSpace = THREE.SRGBColorSpace;
@@ -375,11 +377,12 @@ const blankBoard = (() => {
 })();
 
 function WhiteboardStand({ item, board, onClick }: { item: PlacedItem; board: WhiteboardInfo; onClick?: (boardId: string) => void }) {
-  const [tex, setTex] = useState<THREE.Texture>(() => blankBoard(board.title));
+  const t = useT();
+  const [tex, setTex] = useState<THREE.Texture>(() => blankBoard(board.title, t("office.clickToDraw")));
   const empty = board.elementCount === 0 && board.pendingCount === 0;
   useEffect(() => {
     if (!board.hasThumbnail || empty) {
-      setTex(blankBoard(board.title));
+      setTex(blankBoard(board.title, t("office.clickToDraw")));
       return;
     }
     let alive = true;
@@ -391,7 +394,7 @@ function WhiteboardStand({ item, board, onClick }: { item: PlacedItem; board: Wh
     return () => {
       alive = false;
     };
-  }, [board.id, board.thumbVersion, board.hasThumbnail, board.title, empty]);
+  }, [board.id, board.thumbVersion, board.hasThumbnail, board.title, empty, t]);
   // Drawn on with no editor open (agents usually are): bring the picture up to date here.
   const stale = board.pendingCount > 0 || (!empty && (!board.hasThumbnail || board.thumbVersion < board.version));
   useEffect(() => {

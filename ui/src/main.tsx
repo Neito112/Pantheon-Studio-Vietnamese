@@ -7,6 +7,9 @@ import { createRoot } from "react-dom/client";
 import { createBrowserRouter, Outlet, RouterProvider } from "react-router";
 import { StudioShell } from "@/studio/StudioShell";
 import { EngineGate } from "@/components/EngineGate";
+import { I18nProvider } from "@/i18n";
+import { en } from "@/i18n/locales/en";
+import { vi } from "@/i18n/locales/vi";
 
 // Each page loads on first visit.
 const page = (load: () => Promise<{ default: ComponentType }>) => {
@@ -51,8 +54,10 @@ const router = createBrowserRouter([
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <EngineGate>
-      <RouterProvider router={router} />
-    </EngineGate>
+    <I18nProvider catalogs={{ en, vi }}>
+      <EngineGate>
+        <RouterProvider router={router} />
+      </EngineGate>
+    </I18nProvider>
   </StrictMode>,
 );

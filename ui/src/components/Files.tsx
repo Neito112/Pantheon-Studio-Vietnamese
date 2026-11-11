@@ -3,6 +3,7 @@
 /** Files given to agents: the per-agent library, plus small pieces used in chat. */
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocale, useT, translate, formatBytes, formatDuration, formatNumber } from "@/i18n";
 import { api } from "@/lib/api";
 import type { AttachmentBrief, AttachmentInfo } from "@/lib/types";
 import { useOrg } from "@/store/org";
@@ -14,25 +15,18 @@ export const posterUrl = (id: string) => `${engineHttp()}/api/v1/attachments/${i
 /** Videos the interface plays in place (others download). */
 const playable = (mime: string) => mime === "video/mp4" || mime === "video/webm";
 
-const clock = (s: number) => `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, "0")}`;
-
 /** A video: the player when it can play here, else its poster and a download link. */
 function VideoView({ file, className }: { file: { id: string; name: string; mime: string }; className?: string }) {
+  const t = useT();
   return playable(file.mime) ? (
     <video src={attachmentUrl(file.id)} poster={posterUrl(file.id)} controls autoPlay className={className} />
   ) : (
-    <a href={attachmentUrl(file.id, true)} title={`Download ${file.name}`} onClick={(e) => e.stopPropagation()}>
+    <a href={attachmentUrl(file.id, true)} title={t("files.downloadFile", { name: file.name })} onClick={(e) => e.stopPropagation()}>
       <img src={posterUrl(file.id)} alt={file.name} className={className} />
-      <div className="mt-2 text-center text-xs text-ink-3">This format doesn&apos;t play here: download it to watch.</div>
+      <div className="mt-2 text-center text-xs text-ink-3">{t("files.cannotPlayHere")}</div>
     </a>
   );
 }
-
-export const humanSize = (n: number): string => {
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
-  return `${(n / 1024 / 1024).toFixed(1)} MB`;
-};
 
 const EXT_ICON: Record<string, string> = { pdf: "📕", doc: "📘", docx: "📘", xls: "📗", xlsx: "📗", csv: "📗", md: "📝", txt: "📝", json: "🧾" };
 
@@ -43,9 +37,16 @@ function iconFor(f: { name: string; kind: string }): string {
 }
 
 /** Detail line, e.g. "12 pages · 34,000 characters". */
-function detail(f: AttachmentInfo): string {
+function detail(f: AttachmentInfo, locale: ReturnType<typeof useLocale>, t: (key: string, params?: Record<string, string | number>) => string): string {
   const i = f.info ?? {};
-  return [humanSize(f.size), f.kind === "video" && i.duration ? clock(i.duration) : "", i.pages ? `${i.pages} ${i.pages === 1 ? "page" : "pages"}` : "", i.chars ? `${i.chars.toLocaleString()} characters` : "", i.width ? `${i.width}×${i.height}` : "", i.sheets ? `${i.sheets} ${i.sheets === 1 ? "sheet" : "sheets"}` : ""]
+  return [
+    formatBytes(locale, f.size),
+    f.kind === "video" && i.duration ? formatDuration(locale, i.duration) : "",
+    i.pages ? t(i.pages === 1 ? "files.pages_one" : "files.pages_other", { count: i.pages }) : "",
+    i.chars ? t("files.characters", { count: formatNumber(locale, i.chars) }) : "",
+    i.width ? `${i.width}×${i.height}` : "",
+    i.sheets ? t(i.sheets === 1 ? "files.sheets_one" : "files.sheets_other", { count: i.sheets }) : "",
+  ]
     .filter(Boolean)
     .join(" · ");
 }
@@ -57,7 +58,7 @@ export async function uploadFiles(orgId: string, files: File[], agentId: string 
     try {
       done.push(await api.uploadAttachment(orgId, file, agentId));
     } catch (e) {
-      onError(`${file.name || "file"}: ${(e as Error).message}`);
+      onError(translate("files.uploadError", { name: file.name || translate("files.file"), error: (e as Error).message }));
     }
   }
   return done;
@@ -65,6 +66,7 @@ export async function uploadFiles(orgId: string, files: File[], agentId: string 
 
 /** A file attached to a message (or waiting to be sent). */
 export function FilePill({ file, onRemove }: { file: { id: string; name: string; kind: string; status?: string; error?: string }; onRemove?: () => void }) {
+  const t = useT();
   return (
     <span
       className={cx("inline-flex max-w-full items-center gap-1.5 rounded-md border px-2 py-1 text-xs", file.status === "failed" ? "border-bad/50 bg-bad/10 text-bad" : "border-line-2 bg-panel-2 text-ink-2")}
@@ -73,7 +75,7 @@ export function FilePill({ file, onRemove }: { file: { id: string; name: string;
       {file.status === "processing" ? <Spinner className="size-3" /> : <span>{iconFor(file)}</span>}
       <span className="max-w-[12rem] truncate">{file.name}</span>
       {onRemove && (
-        <button onClick={onRemove} className="text-ink-3 hover:text-ink cursor-pointer" aria-label={`Remove ${file.name}`}>
+        <button onClick={onRemove} className="text-ink-3 hover:text-ink cursor-pointer" aria-label={t("files.removeFile", { name: file.name })}>
           ✕
         </button>
       )}
@@ -83,6 +85,8 @@ export function FilePill({ file, onRemove }: { file: { id: string; name: string;
 
 /** Attachments under a chat message: image and video thumbnails and document links. */
 export function MessageAttachments({ items }: { items: AttachmentBrief[] }) {
+  const t = useT();
+  const locale = useLocale();
   const [open, setOpen] = useState<AttachmentBrief | null>(null);
   const images = items.filter((a) => a.kind === "image" || a.kind === "video");
   const docs = items.filter((a) => a.kind !== "image" && a.kind !== "video");
@@ -95,10 +99,10 @@ export function MessageAttachments({ items }: { items: AttachmentBrief[] }) {
         </button>
       ))}
       {docs.map((a) => (
-        <a key={a.id} href={attachmentUrl(a.id, true)} className="inline-flex items-center gap-1.5 rounded-md border border-line-2 bg-panel-2 px-2 py-1 text-xs text-ink-2 hover:text-ink" title={`Download ${a.name}`}>
+        <a key={a.id} href={attachmentUrl(a.id, true)} className="inline-flex items-center gap-1.5 rounded-md border border-line-2 bg-panel-2 px-2 py-1 text-xs text-ink-2 hover:text-ink" title={t("files.downloadFile", { name: a.name })}>
           <span>{iconFor(a)}</span>
           <span className="max-w-[14rem] truncate">{a.name}</span>
-          <span className="text-ink-3">{humanSize(a.size)}</span>
+          <span className="text-ink-3">{formatBytes(locale, a.size)}</span>
         </a>
       ))}
       {open && (
@@ -122,6 +126,7 @@ export function MessageAttachments({ items }: { items: AttachmentBrief[] }) {
  * searchable by the agent; images are shown to it when its model can see.
  */
 export function AgentFiles({ orgId, agentId, agentName, compact }: { orgId: string; agentId: string | null; agentName?: string; compact?: boolean }) {
+  const t = useT();
   const version = useOrg((s) => s.attachmentsVersion);
   const [files, setFiles] = useState<AttachmentInfo[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -170,10 +175,13 @@ export function AgentFiles({ orgId, agentId, agentName, compact }: { orgId: stri
     >
       <div className={cx("flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border border-dashed px-3 text-sm transition-colors", compact ? "py-2" : "py-4", drag ? "border-accent bg-accent/10" : "border-line-2")}>
         <span className="min-w-0 flex-1 basis-40 text-ink-2">
-          {agentId ? `Give ${agentName ?? "this agent"} documents, images and videos` : "Files shared with everyone in this organization"} — drop them here or
+          {agentId
+            ? t("files.giveAgentFiles", { name: agentName ?? t("files.thisAgent") })
+            : t("files.sharedWithEveryone")}{" "}
+          {t("files.dropHere")}
         </span>
         <Button size="sm" className="shrink-0" loading={busy} onClick={() => input.current?.click()}>
-          Choose files
+          {t("files.chooseFiles")}
         </Button>
         <input ref={input} type="file" multiple className="hidden" onChange={(e) => (void add(e.target.files ?? []), (e.target.value = ""))} />
       </div>
@@ -182,7 +190,7 @@ export function AgentFiles({ orgId, agentId, agentName, compact }: { orgId: stri
         <Spinner />
       ) : files.length === 0 ? (
         <div className="text-xs text-ink-3">
-          {agentId ? "Nothing yet. PDF, Word, Excel, text, code, images and videos work; the agent can read and search documents, see images if its model supports vision, and watch videos if it supports video (otherwise it gets frames)." : "Nothing shared yet."}
+          {agentId ? t("files.nothingYet") : t("files.nothingSharedYet")}
         </div>
       ) : (
         <div className="divide-y divide-line rounded-lg border border-line">
@@ -197,6 +205,8 @@ export function AgentFiles({ orgId, agentId, agentName, compact }: { orgId: stri
 }
 
 function FileRow({ f, onPreview, onDeleted }: { f: AttachmentInfo; onPreview: () => void; onDeleted: () => void }) {
+  const t = useT();
+  const locale = useLocale();
   const [confirm, setConfirm] = useState(false);
   return (
     <div className="flex items-start gap-3 p-2.5 text-sm">
@@ -207,31 +217,31 @@ function FileRow({ f, onPreview, onDeleted }: { f: AttachmentInfo; onPreview: ()
       )}
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-1.5">
-          <button onClick={onPreview} className="truncate font-medium hover:underline cursor-pointer" title="Preview">
+          <button onClick={onPreview} className="truncate font-medium hover:underline cursor-pointer" title={t("files.preview")}>
             {f.name}
           </button>
-          {f.status === "processing" && <Badge tone="info">reading…</Badge>}
-          {f.status === "failed" && <Badge tone="bad">unreadable</Badge>}
-          {f.kind === "other" && <Badge>stored only</Badge>}
+          {f.status === "processing" && <Badge tone="info">{t("files.reading")}</Badge>}
+          {f.status === "failed" && <Badge tone="bad">{t("files.unreadable")}</Badge>}
+          {f.kind === "other" && <Badge>{t("files.storedOnly")}</Badge>}
         </div>
-        <div className="text-xs text-ink-3">{detail(f)}</div>
+        <div className="text-xs text-ink-3">{detail(f, locale, t)}</div>
         {f.error && <div className="text-xs text-bad">{f.error}</div>}
         {f.info?.note && <div className="text-xs text-warn">{f.info.note}</div>}
       </div>
-      <a href={attachmentUrl(f.id, true)} className="text-xs text-ink-3 hover:text-ink" title="Download">
+      <a href={attachmentUrl(f.id, true)} className="text-xs text-ink-3 hover:text-ink" title={t("common.download")}>
         ⤓
       </a>
       {confirm ? (
         <span className="flex gap-1">
           <Button size="sm" variant="ghost" onClick={() => setConfirm(false)}>
-            Keep
+            {t("files.keep")}
           </Button>
           <Button size="sm" variant="danger" onClick={() => api.deleteAttachment(f.id).then(onDeleted)}>
-            Delete
+            {t("common.delete")}
           </Button>
         </span>
       ) : (
-        <button onClick={() => setConfirm(true)} className="text-ink-3 hover:text-bad cursor-pointer" title="Delete" aria-label={`Delete ${f.name}`}>
+        <button onClick={() => setConfirm(true)} className="text-ink-3 hover:text-bad cursor-pointer" title={t("common.delete")} aria-label={t("files.deleteFile", { name: f.name })}>
           ✕
         </button>
       )}
@@ -240,17 +250,20 @@ function FileRow({ f, onPreview, onDeleted }: { f: AttachmentInfo; onPreview: ()
 }
 
 function FilePreview({ file, onClose }: { file: AttachmentInfo; onClose: () => void }) {
+  const t = useT();
+  const locale = useLocale();
   const [text, setText] = useState<{ text: string; total: number } | null>(null);
   useEffect(() => {
-    if (file.kind === "document" && file.status === "ready") void api.attachmentText(file.id).then(setText).catch(() => setText({ text: "(couldn't load the text)", total: 0 }));
-  }, [file]);
+    if (file.kind === "document" && file.status === "ready")
+      void api.attachmentText(file.id).then(setText).catch(() => setText({ text: t("files.couldNotLoadText"), total: 0 }));
+  }, [file, t]);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
       <div className="flex max-h-[85dvh] w-full max-w-3xl flex-col rounded-xl border border-line-2 bg-panel shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center gap-2 border-b border-line px-4 py-2.5">
           <span className="truncate font-semibold">{file.name}</span>
-          <span className="text-xs text-ink-3">{detail(file)}</span>
-          <button onClick={onClose} className="ml-auto text-ink-3 hover:text-ink cursor-pointer" aria-label="Close">
+          <span className="text-xs text-ink-3">{detail(file, locale, t)}</span>
+          <button onClick={onClose} className="ml-auto text-ink-3 hover:text-ink cursor-pointer" aria-label={t("files.close")}>
             ✕
           </button>
         </div>
@@ -261,21 +274,25 @@ function FilePreview({ file, onClose }: { file: AttachmentInfo; onClose: () => v
             file.status === "ready" ? (
               <VideoView file={file} className="mx-auto max-h-[70dvh] max-w-full rounded" />
             ) : (
-              <div className="text-sm text-ink-3">{file.error || "Still being prepared…"}</div>
+              <div className="text-sm text-ink-3">{file.error || t("files.stillPreparing")}</div>
             )
           ) : file.kind === "document" ? (
             text ? (
               <>
-                <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-ink-2">{text.text || "(no readable text)"}</pre>
-                {text.total > text.text.length && <div className="mt-2 text-xs text-ink-3">Showing the first {text.text.length.toLocaleString()} of {text.total.toLocaleString()} characters — the agent can read all of it.</div>}
+                <pre className="whitespace-pre-wrap break-words font-mono text-xs leading-relaxed text-ink-2">{text.text || t("files.noReadableText")}</pre>
+                {text.total > text.text.length && (
+                  <div className="mt-2 text-xs text-ink-3">
+                    {t("files.showingFirstChars", { shown: formatNumber(locale, text.text.length), total: formatNumber(locale, text.total) })}
+                  </div>
+                )}
               </>
             ) : file.status === "ready" ? (
               <Spinner />
             ) : (
-              <div className="text-sm text-ink-3">{file.error || "Still being read…"}</div>
+              <div className="text-sm text-ink-3">{file.error || t("files.stillBeingRead")}</div>
             )
           ) : (
-            <div className="text-sm text-ink-3">This kind of file is stored, but agents can&apos;t read it. Download it to open it.</div>
+            <div className="text-sm text-ink-3">{t("files.kindNotReadable")}</div>
           )}
         </div>
       </div>

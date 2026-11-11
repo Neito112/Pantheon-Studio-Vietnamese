@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui";
+import { useT } from "@/i18n";
 import { inDesktopApp } from "@/lib/engine";
 
 type Found = { version: string; install: () => Promise<void> };
@@ -7,6 +8,7 @@ type Found = { version: string; install: () => Promise<void> };
 /** "Pantheon 2.1.0 is available · Install and restart": checked once when the desktop app
  * starts, from the GitHub release (the updater plugin checks its signature). */
 export function UpdateBanner() {
+  const t = useT();
   const [found, setFound] = useState<Found | null>(null);
   const [state, setState] = useState<"idle" | "installing" | "failed">("idle");
   const [hidden, setHidden] = useState(false);
@@ -38,12 +40,12 @@ export function UpdateBanner() {
   return (
     <div className="flex shrink-0 items-center gap-3 border-b border-line bg-panel-2 px-4 py-1.5 text-sm">
       <span>
-        Pantheon <span className="font-medium">{found.version}</span> is available.
+        {t("shell.update.available", { version: found.version })}
       </span>
-      {state === "failed" && <span className="text-xs text-bad">The update didn&apos;t install; try again later.</span>}
+      {state === "failed" && <span className="text-xs text-bad">{t("shell.update.failed")}</span>}
       <div className="ml-auto flex gap-2">
         <Button size="sm" variant="ghost" onClick={() => setHidden(true)}>
-          Later
+          {t("shell.update.later")}
         </Button>
         <Button
           size="sm"
@@ -54,7 +56,7 @@ export function UpdateBanner() {
             found.install().catch(() => setState("failed"));
           }}
         >
-          {state === "installing" ? "Installing…" : "Install and restart"}
+          {state === "installing" ? t("shell.update.installing") : t("shell.update.installAndRestart")}
         </Button>
       </div>
     </div>

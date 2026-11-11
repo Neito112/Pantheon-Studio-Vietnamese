@@ -2,33 +2,37 @@
 
 import type { Agent, RuntimeStatus } from "@/lib/types";
 import { initials } from "@/lib/format";
+import { useT } from "@/i18n";
 import { Badge, cx, type Tone } from "./ui";
 
+/** The tone and dot colour for a runtime status; the label is translated where it is shown. */
 export const STATUS_META: Record<RuntimeStatus, { label: string; tone: Tone; dot: string }> = {
-  idle: { label: "Idle", tone: "neutral", dot: "bg-ink-3" },
-  working: { label: "Working", tone: "accent", dot: "bg-accent" },
-  awaiting_approval: { label: "Needs approval", tone: "warn", dot: "bg-warn" },
-  error: { label: "Error", tone: "bad", dot: "bg-bad" },
-  retrying: { label: "Retrying", tone: "warn", dot: "bg-warn" },
-  cooling_down: { label: "Cooling down", tone: "info", dot: "bg-info" },
-  queued: { label: "Queued", tone: "neutral", dot: "bg-info" },
+  idle: { label: "team.statusIdle", tone: "neutral", dot: "bg-ink-3" },
+  working: { label: "team.statusWorking", tone: "accent", dot: "bg-accent" },
+  awaiting_approval: { label: "team.statusAwaitingApproval", tone: "warn", dot: "bg-warn" },
+  error: { label: "team.statusError", tone: "bad", dot: "bg-bad" },
+  retrying: { label: "team.statusRetrying", tone: "warn", dot: "bg-warn" },
+  cooling_down: { label: "team.statusCoolingDown", tone: "info", dot: "bg-info" },
+  queued: { label: "team.statusQueued", tone: "neutral", dot: "bg-info" },
 };
 
 export function StatusDot({ status, className }: { status: RuntimeStatus; className?: string }) {
+  const t = useT();
   const m = STATUS_META[status] ?? STATUS_META.idle;
   return (
     <span
       className={cx("inline-block size-2 rounded-full", m.dot, status === "working" && "pulse-ring", className)}
-      title={m.label}
+      title={t(m.label)}
     />
   );
 }
 
 export function StatusBadge({ status }: { status: RuntimeStatus }) {
+  const t = useT();
   const m = STATUS_META[status] ?? STATUS_META.idle;
   return (
     <Badge tone={m.tone}>
-      <StatusDot status={status} className="size-1.5" /> {m.label}
+      <StatusDot status={status} className="size-1.5" /> {t(m.label)}
     </Badge>
   );
 }
@@ -67,12 +71,13 @@ export function AgentAvatar({
 }
 
 export function UserAvatar({ size = 28 }: { size?: number }) {
+  const t = useT();
   return (
     <span
       className="inline-flex shrink-0 items-center justify-center rounded-full bg-ink text-bg font-semibold"
       style={{ width: size, height: size, fontSize: Math.max(9, size * 0.38) }}
     >
-      You
+      {t("common.you")}
     </span>
   );
 }

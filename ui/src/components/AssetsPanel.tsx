@@ -4,12 +4,15 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useLocale, useT, formatNumber } from "@/i18n";
 import { api } from "@/lib/api";
 import type { AssetInfo, PackInfo } from "@/lib/types";
 import { useAssets } from "@/office/assets";
 import { Badge, Button, Spinner } from "./ui";
 
 export function AssetsPanel() {
+  const t = useT();
+  const locale = useLocale();
   const [assets, setAssets] = useState<AssetInfo[] | null>(null);
   const [packs, setPacks] = useState<PackInfo[] | null>(null);
   const [confirm, setConfirm] = useState<string | null>(null);
@@ -26,27 +29,25 @@ export function AssetsPanel() {
     <div className="space-y-5 p-4 text-sm">
       <section>
         <div className="mb-2 flex items-center justify-between">
-          <div className="text-xs font-medium uppercase tracking-wider text-ink-3">Packs</div>
+          <div className="text-xs font-medium uppercase tracking-wider text-ink-3">{t("files.packs")}</div>
           <Button size="sm" variant="ghost" onClick={load}>
-            Refresh
+            {t("common.refresh")}
           </Button>
         </div>
         <div className="text-ink-3">
-          {withAssets.length
-            ? `Assets also come from ${withAssets.map((p) => p.name).join(", ")}. `
-            : ""}
-          Add, switch off or remove packs (assets, libraries, templates, plugins) on the{" "}
+          {withAssets.length ? t("files.assetsAlsoFrom", { packs: withAssets.map((p) => p.name).join(", ") }) : ""}
+          {t("files.managePacks")}{" "}
           <Link href="/packs" className="text-accent hover:underline">
-            Packs
+            {t("files.packsPage")}
           </Link>{" "}
-          page.
+          {t("files.packsPageTail")}
         </div>
       </section>
 
       <section>
-        <div className="mb-2 text-xs font-medium uppercase tracking-wider text-ink-3">Assets</div>
+        <div className="mb-2 text-xs font-medium uppercase tracking-wider text-ink-3">{t("files.assets")}</div>
         {assets.length === 0 ? (
-          <div className="text-ink-3">Ask Zeus to build a prop from shapes, or to find a free 3D model online and import it.</div>
+          <div className="text-ink-3">{t("files.noAssets")}</div>
         ) : (
           <div className="divide-y divide-line rounded-lg border border-line">
             {assets.map((a) => (
@@ -56,18 +57,18 @@ export function AssetsPanel() {
                   <div className="flex flex-wrap items-center gap-1.5">
                     <span className="font-medium">{a.label}</span>
                     <Badge>{a.category}</Badge>
-                    {a.carryable && <Badge tone="info">carryable</Badge>}
+                    {a.carryable && <Badge tone="info">{t("files.carryable")}</Badge>}
                   </div>
                   <div className="mt-0.5 truncate text-xs text-ink-3" title={a.sourceUrl || a.source}>
-                    {a.size.map((v) => v.toFixed(2)).join(" × ")} m · {a.source}
-                    {a.license && ` · ${a.license}`}
+                    {t("files.assetDimensions", { size: a.size.map((v) => formatNumber(locale, v, 2)).join(" × "), source: a.source })}
+                    {a.license && t("files.assetLicense", { license: a.license })}
                   </div>
                 </div>
                 {own.includes(a) &&
                   (confirm === a.id ? (
                     <div className="flex gap-1">
                       <Button size="sm" variant="ghost" onClick={() => setConfirm(null)}>
-                        Keep
+                        {t("files.keep")}
                       </Button>
                       <Button
                         size="sm"
@@ -79,7 +80,7 @@ export function AssetsPanel() {
                           void useAssets.getState().load(true);
                         }}
                       >
-                        Delete
+                        {t("common.delete")}
                       </Button>
                     </div>
                   ) : (

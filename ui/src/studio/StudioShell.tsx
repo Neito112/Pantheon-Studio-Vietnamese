@@ -7,6 +7,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Link, useLocation } from "react-router";
 import { api } from "@/lib/api";
 import type { Org } from "@/lib/types";
+import { useT } from "@/i18n";
 import { CommandBar } from "./CommandBar";
 import { Icon, type IconName } from "./icons";
 import { agentHue, hsl, initials } from "./look";
@@ -32,11 +33,17 @@ function RailButton({ to, icon, label, active }: { to: string; icon: IconName; l
 }
 
 function OrgGlyph({ org, active }: { org: Org; active: boolean }) {
+  const t = useT();
   const hue = agentHue({ name: org.name, avatar: {} });
   const working = org.workingAgents ?? 0;
   const paused = org.status === "paused";
+  const status = working
+    ? t("shell.rail.orgWorking", { count: working })
+    : paused
+      ? t("shell.rail.orgPaused")
+      : "";
   return (
-    <Link to={`/org/${org.id}`} title={`${org.name}${working ? ` · ${working} working` : ""}${paused ? " · paused" : ""}`}
+    <Link to={`/org/${org.id}`} title={status ? t("shell.rail.orgTitle", { name: org.name, status }) : org.name}
       className="group relative grid size-11 place-items-center">
       {active && (
         <motion.span layoutId="rail-active" className="absolute inset-0 rounded-xl"
@@ -63,6 +70,7 @@ function OrgGlyph({ org, active }: { org: Org; active: boolean }) {
 }
 
 export function StudioShell({ children }: { children: ReactNode }) {
+  const t = useT();
   const { pathname } = useLocation();
   const setCommand = useStudio((s) => s.setCommand);
   const [orgs, setOrgs] = useState<Org[]>([]);
@@ -93,7 +101,7 @@ export function StudioShell({ children }: { children: ReactNode }) {
     <div className="studio st-grain relative flex h-full">
       <button
         onClick={() => setMenu(true)}
-        aria-label="Menu"
+        aria-label={t("shell.rail.menu")}
         className="fixed left-2 top-[max(0.5rem,env(safe-area-inset-top))] z-40 grid size-10 place-items-center rounded-xl border border-[var(--st-edge)] bg-[rgba(14,15,20,0.85)] text-[var(--st-ink-2)] backdrop-blur md:hidden"
       >
         <svg viewBox="0 0 24 24" className="size-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round">
@@ -107,27 +115,27 @@ export function StudioShell({ children }: { children: ReactNode }) {
         <Link to="/" title="Pantheon Studio" className="mb-2 grid size-11 place-items-center">
           <img src="/logo.svg" alt="" className="size-8" onError={(e) => (e.currentTarget.style.display = "none")} />
         </Link>
-        <RailButton to="/" icon="home" label="Home" active={on("/")} />
-        <RailButton to="/supervisor" icon="zeus" label="Zeus, the supervisor" active={on("/supervisor")} />
-        <RailButton to="/argus" icon="argus" label="Argus, oversight" active={on("/argus")} />
-        <RailButton to="/kronos" icon="kronos" label="Kronos" active={on("/kronos")} />
+        <RailButton to="/" icon="home" label={t("shell.rail.home")} active={on("/")} />
+        <RailButton to="/supervisor" icon="zeus" label={t("shell.rail.supervisor")} active={on("/supervisor")} />
+        <RailButton to="/argus" icon="argus" label={t("shell.rail.oversight")} active={on("/argus")} />
+        <RailButton to="/kronos" icon="kronos" label={t("shell.rail.host")} active={on("/kronos")} />
         <div className="my-2 h-px w-7 bg-[var(--st-edge)]" />
         <div className="no-scrollbar flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto">
           {orgs.map((o) => <OrgGlyph key={o.id} org={o} active={pathname.startsWith(`/org/${o.id}`)} />)}
-          <Link to="/" title="New organization" className="grid size-11 place-items-center text-[var(--st-ink-3)] hover:text-[var(--st-ink)]">
+          <Link to="/" title={t("shell.rail.newOrganization")} className="grid size-11 place-items-center text-[var(--st-ink-3)] hover:text-[var(--st-ink)]">
             <span className="grid size-8 place-items-center rounded-[10px] border border-dashed border-[var(--st-edge-2)]">
               <Icon name="plus" size={15} />
             </span>
           </Link>
         </div>
         <div className="my-2 h-px w-7 bg-[var(--st-edge)]" />
-        <button onClick={() => setCommand(true)} title="Command bar (Ctrl K)"
+        <button onClick={() => setCommand(true)} title={t("shell.rail.commandBar")}
           className="grid size-11 place-items-center text-[var(--st-ink-3)] hover:text-[var(--st-ink)]">
           <Icon name="search" size={19} />
         </button>
-        <RailButton to="/packs" icon="packs" label="Packs: libraries, assets, plugins" active={on("/packs")} />
-        <RailButton to="/benchmarks" icon="bench" label="Benchmarks" active={on("/benchmarks")} />
-        <RailButton to="/settings" icon="settings" label="Settings" active={on("/settings")} />
+        <RailButton to="/packs" icon="packs" label={t("shell.rail.packs")} active={on("/packs")} />
+        <RailButton to="/benchmarks" icon="bench" label={t("shell.rail.benchmarks")} active={on("/benchmarks")} />
+        <RailButton to="/settings" icon="settings" label={t("shell.rail.settings")} active={on("/settings")} />
       </nav>
       <main className="relative z-10 min-h-0 min-w-0 flex-1 overflow-hidden max-md:pt-14">{children}</main>
       <CommandBar />

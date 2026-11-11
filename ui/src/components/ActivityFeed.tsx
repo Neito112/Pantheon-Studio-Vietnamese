@@ -1,7 +1,8 @@
 "use client";
 
 import { memo } from "react";
-import { timeAgo, truncate } from "@/lib/format";
+import { truncate } from "@/lib/format";
+import { formatRelative, useLocale, useT } from "@/i18n";
 import { useOrg } from "@/store/org";
 import { useView } from "@/studio/replay";
 import type { FeedItem } from "@/store/reduce";
@@ -27,9 +28,10 @@ const KIND_STYLE: Record<string, { icon: string; color: string }> = {
 };
 
 export function ActivityFeed({ onSelectAgent, limit = 120, filterAgent }: { onSelectAgent?: (id: string) => void; limit?: number; filterAgent?: string | null }) {
+  const t = useT();
   const feed = useView((s) => s.feed); // on the timeline: the activity up to its moment
   const items = (filterAgent ? feed.filter((f) => f.agentId === filterAgent) : feed).slice(0, limit);
-  if (!items.length) return <div className="px-4 py-6 text-center text-sm text-ink-3">Waiting for activity…</div>;
+  if (!items.length) return <div className="px-4 py-6 text-center text-sm text-ink-3">{t("work.waitingForActivity")}</div>;
   return (
     <div className="divide-y divide-line/60">
       {items.map((f) => (
@@ -40,6 +42,7 @@ export function ActivityFeed({ onSelectAgent, limit = 120, filterAgent }: { onSe
 }
 
 const FeedRow = memo(function FeedRow({ item, onSelectAgent }: { item: FeedItem; onSelectAgent?: (id: string) => void }) {
+  const locale = useLocale();
   const agent = useOrg((s) => (item.agentId ? s.agents[item.agentId] : undefined));
   const style = KIND_STYLE[item.kind] ?? KIND_STYLE.notice;
   return (
@@ -53,7 +56,7 @@ const FeedRow = memo(function FeedRow({ item, onSelectAgent }: { item: FeedItem;
           {agent && <span className="mr-1 not-italic">{style.icon}</span>}
           {truncate(item.text, 280)}
         </div>
-        <div className="mt-0.5 text-[11px] text-ink-3">{timeAgo(item.ts)}</div>
+        <div className="mt-0.5 text-[11px] text-ink-3">{formatRelative(locale, item.ts)}</div>
       </div>
     </div>
   );

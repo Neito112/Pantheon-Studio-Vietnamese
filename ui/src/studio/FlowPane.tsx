@@ -22,6 +22,7 @@ import "@xyflow/react/dist/style.css";
 import { AnimatePresence, motion } from "motion/react";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
+import { useT, useLocale, formatTime } from "@/i18n";
 import { api } from "@/lib/api";
 import type { Agent, Flow, FlowGraph, FlowNode, FlowRun, StepStatus } from "@/lib/types";
 import { useOrg } from "@/store/org";
@@ -35,12 +36,19 @@ const btn =
   "inline-flex h-8 whitespace-nowrap items-center gap-1.5 rounded-lg border border-[var(--st-edge)] bg-[var(--st-glass-2)] px-3 text-[12.5px] text-[var(--st-ink-2)] transition-colors hover:border-[var(--st-edge-2)] hover:text-[var(--st-ink)] disabled:opacity-40";
 const primary = "inline-flex h-8 whitespace-nowrap items-center gap-1.5 rounded-lg px-3 text-[12.5px] text-white disabled:opacity-40";
 
-const STATUS: Record<StepStatus, { color: string; label: string }> = {
-  pending: { color: "var(--st-ink-3)", label: "Waiting" },
-  running: { color: "var(--st-violet)", label: "Working" },
-  done: { color: "var(--st-green)", label: "Done" },
-  failed: { color: "var(--st-red)", label: "Failed" },
-  skipped: { color: "var(--st-ink-3)", label: "Skipped" },
+const STATUS: Record<StepStatus, { color: string; key: string }> = {
+  pending: { color: "var(--st-ink-3)", key: "shell.flow.statusWaiting" },
+  running: { color: "var(--st-violet)", key: "shell.flow.statusWorking" },
+  done: { color: "var(--st-green)", key: "common.done" },
+  failed: { color: "var(--st-red)", key: "shell.flow.statusFailed" },
+  skipped: { color: "var(--st-ink-3)", key: "shell.flow.statusSkipped" },
+};
+
+const RUN_STATUS: Record<FlowRun["status"], string> = {
+  running: "shell.flow.statusWorking",
+  done: "common.done",
+  failed: "shell.flow.statusFailed",
+  cancelled: "shell.flow.statusCancelled",
 };
 
 export function FlowPane() {
@@ -54,6 +62,7 @@ export function FlowPane() {
 type StepData = { node: FlowNode; agent?: Agent; status?: StepStatus; selected: boolean };
 
 const StepCard = memo(function StepCard({ data }: NodeProps<Node<StepData>>) {
+  const t = useT();
   const { node, agent, status, selected } = data;
   const hue = agent ? agentHue(agent) : 250;
   const look = status ? STATUS[status] : null;
@@ -73,12 +82,12 @@ const StepCard = memo(function StepCard({ data }: NodeProps<Node<StepData>>) {
         </span>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-medium text-[var(--st-ink)]">{node.title}</div>
-          <div className={`truncate text-[11px] ${ink3}`}>{agent?.name ?? "no agent"}</div>
+          <div className={`truncate text-[11px] ${ink3}`}>{agent?.name ?? t("shell.flow.noAgent")}</div>
         </div>
         {look && (
           <span className="flex items-center gap-1 text-[10.5px]" style={{ color: look.color }}>
             <span className={`size-1.5 rounded-full ${status === "running" ? "st-breathe" : ""}`} style={{ background: look.color }} />
-            {look.label}
+            {t(look.key)}
           </span>
         )}
       </div>
@@ -91,6 +100,7 @@ const StepCard = memo(function StepCard({ data }: NodeProps<Node<StepData>>) {
 const nodeTypes = { step: StepCard };
 
 function FlowEditor() {
+  const t = useT();
   const { orgId } = useParams<{ orgId: string }>();
   const agentsMap = useOrg((s) => s.agents);
   const agents = useMemo(() => Object.values(agentsMap).filter((a) => !a.isSupervisor && !a.metaRole), [agentsMap]);
@@ -192,7 +202,7 @@ function FlowEditor() {
   const addStep = () => {
     const center = rf.screenToFlowPosition({ x: window.innerWidth / 2, y: window.innerHeight / 2 });
     const id = `step${Date.now().toString(36)}`;
-    edit((g) => ({ ...g, nodes: [...g.nodes, { id, title: `Step ${g.nodes.length + 1}`, agentId: agents[0]?.id ?? "", instructions: "", x: center.x - 115, y: center.y - 40 }] }));
+    edit((g) => ({ ...g, nodes: [...g.nodes, { id, title: t("shell.flow.stepN", { n: g.nodes.length + 1 }), agentId: agents[0]?.id ?? "", instructions: "", x: center.x - 115, y: center.y - 40 }] }));
     setSelected(id);
   };
 
@@ -212,7 +222,7 @@ function FlowEditor() {
   const create = async () => {
     setError(null);
     try {
-      const f = await api.createFlow(orgId!, { name: `Flow ${(flows?.length ?? 0) + 1}` });
+      const f = await api.createFlow(orgId!, { name: t("shell.flow.flowN", { n: (flows?.length ?? 0) + 1 }) });
       setFlows((fs) => [...(fs ?? []), f]);
       setFlowId(f.id);
       setRunId(null);
@@ -256,13 +266,13 @@ function FlowEditor() {
 
   const sel = graph?.nodes.find((n) => n.id === selected) ?? null;
 
-  if (!flows) return <div className={`p-6 text-sm ${ink3}`}>Loading flows…</div>;
+  if (!flows) return <div className={`p-6 text-sm ${ink3}`}>{t("shell.flow.loading")}</div>;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-wrap items-center gap-2 border-b border-[var(--st-edge)] px-3 py-2">
         <select className={`${field} h-8 w-48 py-0`} value={flowId ?? ""} onChange={(e) => (setFlowId(e.target.value || null), setRunId(null))}>
-          {flows.length === 0 && <option value="">No flows yet</option>}
+          {flows.length === 0 && <option value="">{t("shell.flow.noneYet")}</option>}
           {flows.map((f) => (
             <option key={f.id} value={f.id}>
               {f.name}
@@ -270,17 +280,17 @@ function FlowEditor() {
           ))}
         </select>
         <button className={btn} onClick={create}>
-          <Icon name="plus" size={13} /> New flow
+          <Icon name="plus" size={13} /> {t("shell.flow.newFlow")}
         </button>
         {flow && draft && !run && (
           <>
             <span className="mx-1 h-5 w-px bg-[var(--st-edge)]" />
             <input className={`${field} h-8 w-44 py-0`} value={draft.name} onChange={(e) => (setDraft({ ...draft, name: e.target.value }), setDirty(true))} />
-            <button className={btn} onClick={addStep} disabled={!agents.length} title={agents.length ? "Add a step" : "Hire agents first"}>
-              <Icon name="plus" size={13} /> Step
+            <button className={btn} onClick={addStep} disabled={!agents.length} title={agents.length ? t("shell.flow.addStep") : t("shell.flow.hireFirst")}>
+              <Icon name="plus" size={13} /> {t("shell.flow.step")}
             </button>
             <button className={btn} onClick={save} disabled={!dirty}>
-              {dirty ? "Save" : "Saved"}
+              {dirty ? t("common.save") : t("common.saved")}
             </button>
           </>
         )}
@@ -288,33 +298,33 @@ function FlowEditor() {
           {run ? (
             <>
               <span className="text-[12.5px]" style={{ color: run.status === "done" ? "var(--st-green)" : run.status === "running" ? "var(--st-violet)" : "var(--st-red)" }}>
-                Run {run.number}: {run.status}
+                {t("shell.flow.runStatus", { number: run.number, status: t(RUN_STATUS[run.status]) })}
               </span>
               {run.status === "running" && (
                 <button className={btn} onClick={() => api.cancelFlowRun(run.id).then(loadRuns)}>
-                  Stop
+                  {t("common.stop")}
                 </button>
               )}
               <button className={btn} onClick={() => setRunId(null)}>
-                Back to editing
+                {t("shell.flow.backToEditing")}
               </button>
             </>
           ) : (
             flow && (
               <>
-                <input className={`${field} h-8 w-64 py-0`} placeholder="The run's input (a question, a brief…)" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && start()} />
+                <input className={`${field} h-8 w-64 py-0`} placeholder={t("shell.flow.inputPlaceholder")} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && start()} />
                 <button className={primary} style={{ background: "linear-gradient(140deg,#9d8cff,#6c5cff)" }} onClick={start} disabled={!draft?.graph.nodes.length}>
-                  <Icon name="play" size={12} /> Run
+                  <Icon name="play" size={12} /> {t("common.run")}
                 </button>
               </>
             )
           )}
           {runs.length > 0 && (
-            <select className={`${field} h-8 w-32 py-0`} value={runId ?? ""} onChange={(e) => setRunId(e.target.value || null)} title="Past runs">
-              <option value="">Runs…</option>
+            <select className={`${field} h-8 w-32 py-0`} value={runId ?? ""} onChange={(e) => setRunId(e.target.value || null)} title={t("shell.flow.pastRuns")}>
+              <option value="">{t("shell.flow.runs")}</option>
               {runs.map((r) => (
                 <option key={r.id} value={r.id}>
-                  Run {r.number} · {r.status}
+                  {t("shell.flow.runOption", { number: r.number, status: t(RUN_STATUS[r.status]) })}
                 </option>
               ))}
             </select>
@@ -358,7 +368,7 @@ function FlowEditor() {
               {selectedEdge && !run && (
                 <div className="absolute bottom-3 left-1/2 z-10 -translate-x-1/2">
                   <button className={btn} onClick={() => deleteEdge(selectedEdge)}>
-                    Delete connection
+                    {t("shell.flow.deleteConnection")}
                   </button>
                 </div>
               )}
@@ -369,9 +379,9 @@ function FlowEditor() {
           {flow && !run && draft && draft.graph.nodes.length === 0 && (
             <div className={`pointer-events-none absolute inset-0 grid place-items-center text-center text-[13px] ${ink3}`}>
               <div>
-                Add steps, give each an agent and what to do,
+                {t("shell.flow.canvasHint1")}
                 <br />
-                and drag from a step&apos;s right dot to the next step to hand its output on.
+                {t("shell.flow.canvasHint2")}
               </div>
             </div>
           )}
@@ -397,15 +407,16 @@ function FlowEditor() {
 }
 
 function Empty({ onCreate }: { onCreate: () => void }) {
+  const t = useT();
   return (
     <div className="grid h-full place-items-center">
       <div className="max-w-sm text-center">
-        <div className="st-display text-[18px]">Flows</div>
+        <div className="st-display text-[18px]">{t("shell.pane.flows.title")}</div>
         <p className={`mt-2 text-[13px] leading-relaxed ${ink3}`}>
-          Work as a graph of steps: each step is one agent doing one thing, and hands its result to the next. No noise, no loops, and you see every step as it runs.
+          {t("shell.flow.emptyBody")}
         </p>
         <button className={`${primary} mt-4`} style={{ background: "linear-gradient(140deg,#9d8cff,#6c5cff)" }} onClick={onCreate}>
-          <Icon name="plus" size={13} /> New flow
+          <Icon name="plus" size={13} /> {t("shell.flow.newFlow")}
         </button>
       </div>
     </div>
@@ -413,15 +424,16 @@ function Empty({ onCreate }: { onCreate: () => void }) {
 }
 
 function StepEditor({ node, agents, onChange, onDelete }: { node: FlowNode; agents: Agent[]; onChange: (p: Partial<FlowNode>) => void; onDelete: () => void }) {
+  const t = useT();
   return (
     <div className="grid gap-3">
-      <div className={`text-[10.5px] uppercase tracking-[0.12em] ${ink3}`}>Step</div>
+      <div className={`text-[10.5px] uppercase tracking-[0.12em] ${ink3}`}>{t("shell.flow.step")}</div>
       <label className="grid gap-1 text-[12px] text-[var(--st-ink-2)]">
-        Title
+        {t("common.title")}
         <input className={`${field} w-full`} value={node.title} onChange={(e) => onChange({ title: e.target.value })} />
       </label>
       <label className="grid gap-1 text-[12px] text-[var(--st-ink-2)]">
-        Who does it
+        {t("shell.flow.whoDoesIt")}
         <select className={`${field} w-full`} value={node.agentId} onChange={(e) => onChange({ agentId: e.target.value })}>
           {agents.map((a) => (
             <option key={a.id} value={a.id}>
@@ -431,48 +443,51 @@ function StepEditor({ node, agents, onChange, onDelete }: { node: FlowNode; agen
         </select>
       </label>
       <label className="grid gap-1 text-[12px] text-[var(--st-ink-2)]">
-        What to do
-        <textarea className={`${field} w-full min-h-[180px] resize-y leading-relaxed`} value={node.instructions} onChange={(e) => onChange({ instructions: e.target.value })} placeholder="What this step does, and what its result should be. It gets the run's input and the results of the steps that feed it." />
+        {t("shell.flow.whatToDo")}
+        <textarea className={`${field} w-full min-h-[180px] resize-y leading-relaxed`} value={node.instructions} onChange={(e) => onChange({ instructions: e.target.value })} placeholder={t("shell.flow.instructionsPlaceholder")} />
       </label>
       <button className={`${btn} justify-center text-[var(--st-bad,#f2667a)]`} onClick={onDelete}>
-        Delete step
+        {t("shell.flow.deleteStep")}
       </button>
       <div className={`text-[11.5px] leading-relaxed ${ink3}`}>
-        Or select a step or a connection (click it) and press Delete or Backspace. Save the flow to keep changes.
+        {t("shell.flow.deleteHint")}
       </div>
     </div>
   );
 }
 
 function StepResult({ run, node, agent }: { run: FlowRun; node: FlowNode; agent?: Agent }) {
+  const t = useT();
+  const locale = useLocale();
   const s = run.steps[node.id];
   const look = STATUS[s?.status ?? "pending"];
   return (
     <div className="grid gap-3">
-      <div className={`text-[10.5px] uppercase tracking-[0.12em] ${ink3}`}>Run {run.number} · step</div>
+      <div className={`text-[10.5px] uppercase tracking-[0.12em] ${ink3}`}>{t("shell.flow.runStepHeading", { number: run.number })}</div>
       <div>
         <div className="text-[15px] font-medium">{node.title}</div>
         <div className={`text-[12px] ${ink3}`}>{agent?.name}</div>
       </div>
       <div className="flex items-center gap-2 text-[12.5px]" style={{ color: look.color }}>
-        <span className="size-2 rounded-full" style={{ background: look.color }} /> {look.label}
-        {s?.startedAt && <span className={`ml-auto st-mono text-[11px] ${ink3}`}>{new Date(s.startedAt).toLocaleTimeString()}</span>}
+        <span className="size-2 rounded-full" style={{ background: look.color }} /> {t(look.key)}
+        {s?.startedAt && <span className={`ml-auto st-mono text-[11px] ${ink3}`}>{formatTime(locale, s.startedAt)}</span>}
       </div>
       {s?.error && <div className="rounded-lg bg-[rgba(255,93,108,0.08)] p-3 text-[12.5px] text-[var(--st-red)]">{s.error}</div>}
       {s?.output ? (
         <div className="whitespace-pre-wrap rounded-lg border border-[var(--st-edge)] bg-black/20 p-3 text-[12.5px] leading-relaxed text-[var(--st-ink-2)]">{s.output}</div>
       ) : (
-        !s?.error && <div className={`text-[12.5px] ${ink3}`}>{s?.status === "running" ? "Working on it…" : "No output yet."}</div>
+        !s?.error && <div className={`text-[12.5px] ${ink3}`}>{s?.status === "running" ? t("shell.flow.workingOnIt") : t("shell.flow.noOutput")}</div>
       )}
     </div>
   );
 }
 
 function RunInput({ run }: { run: FlowRun }) {
+  const t = useT();
   if (!run.input) return null;
   return (
     <div className={`border-t border-[var(--st-edge)] px-4 py-2 text-[12px] ${ink3}`}>
-      Input: <span className="text-[var(--st-ink-2)]">{run.input}</span>
+      {t("shell.flow.inputLabel")} <span className="text-[var(--st-ink-2)]">{run.input}</span>
     </div>
   );
 }

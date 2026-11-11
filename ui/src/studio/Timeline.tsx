@@ -9,6 +9,7 @@
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams } from "react-router";
+import { useT, useLocale, formatDateTime } from "@/i18n";
 import { useOrg } from "@/store/org";
 import { Icon } from "./icons";
 import { agentHue, hsl } from "./look";
@@ -30,10 +31,9 @@ const WORK = new Set([
   "task.created", "task.updated", "approval.requested", "stage.updated",
 ]);
 
-const clock = (t: number) =>
-  new Date(t).toLocaleString(undefined, { weekday: "short", hour: "2-digit", minute: "2-digit", second: "2-digit" });
-
 export function Timeline() {
+  const t = useT();
+  const locale = useLocale();
   const { orgId } = useParams<{ orgId: string }>();
   const agents = useOrg((s) => s.agents);
   const feedLen = useOrg((s) => s.feed.length);
@@ -137,15 +137,15 @@ export function Timeline() {
         <button
           onClick={() => setOpen(!open)}
           className="flex shrink-0 items-center gap-1.5 text-[11px] uppercase tracking-[0.12em] text-[var(--st-ink-3)] hover:text-[var(--st-ink-2)]"
-          title={open ? "Collapse the timeline" : "Expand the timeline"}
+          title={open ? t("shell.timeline.collapse") : t("shell.timeline.expand")}
         >
-          <Icon name="timeline" size={13} /> Timeline
+          <Icon name="timeline" size={13} /> {t("shell.timeline.title")}
         </button>
 
         {open && (
           <>
             <button
-              title={playing ? "Pause" : replaying ? "Play from here" : "Replay this span"}
+              title={playing ? t("common.pause") : replaying ? t("shell.timeline.playFromHere") : t("shell.timeline.replaySpan")}
               onClick={() => {
                 if (!replaying) {
                   // From the first work in view, not from an empty stretch before it.
@@ -219,11 +219,11 @@ export function Timeline() {
                   className="glass pointer-events-none absolute bottom-full z-20 mb-2 -translate-x-1/2 whitespace-nowrap rounded-lg px-3 py-1.5 text-[11.5px]"
                   style={{ left: `${Math.min(Math.max(hover.x * 100, 8), 92)}%` }}
                 >
-                  <span className="st-mono text-[var(--st-ink-2)]">{clock(hover.t)}</span>
+                  <span className="st-mono text-[var(--st-ink-2)]">{formatDateTime(locale, hover.t)}</span>
                   {hover.n > 0 && (
                     <span className="text-[var(--st-ink-3)]">
-                      {" · "}{hover.n} event{hover.n === 1 ? "" : "s"}
-                      {hover.who && <> · mostly <span style={{ color: hsl(hover.hue, 75, 80) }}>{hover.who}</span></>}
+                      {" · "}{t("shell.timeline.eventCount", { count: hover.n })}
+                      {hover.who && <> · {t("shell.timeline.mostly")} <span style={{ color: hsl(hover.hue, 75, 80) }}>{hover.who}</span></>}
                     </span>
                   )}
                 </div>
@@ -238,7 +238,7 @@ export function Timeline() {
                   className="st-mono rounded-md px-1.5 py-0.5 text-[11px]"
                   style={{ color: s === span ? "var(--st-ink)" : "var(--st-ink-3)", background: s === span ? "rgba(255,255,255,0.06)" : undefined }}
                 >
-                  {s.label}
+                  {s.label === "All" ? t("common.all") : s.label}
                 </button>
               ))}
             </div>
@@ -259,16 +259,16 @@ export function Timeline() {
                   ))}
                 </div>
               )}
-              <span className="st-mono text-[11px] text-[var(--st-cyan)]">{clock(at)}</span>
+              <span className="st-mono text-[11px] text-[var(--st-cyan)]">{formatDateTime(locale, at)}</span>
               <button onClick={() => setAt(null)}
                 className="flex items-center gap-1.5 rounded-lg bg-[rgba(61,220,151,0.12)] px-2.5 py-1 text-[11px] text-[var(--st-green)] hover:bg-[rgba(61,220,151,0.2)]">
-                <span className="size-1.5 rounded-full bg-[var(--st-green)]" /> Back to live
+                <span className="size-1.5 rounded-full bg-[var(--st-green)]" /> {t("shell.timeline.backToLive")}
               </button>
             </motion.div>
           ) : (
             <motion.span key="live" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
               className="inline-flex shrink-0 items-center gap-1.5 text-[11px] text-[var(--st-green)]">
-              <span className="size-1.5 animate-pulse rounded-full bg-[var(--st-green)]" /> Live
+              <span className="size-1.5 animate-pulse rounded-full bg-[var(--st-green)]" /> {t("shell.timeline.live")}
             </motion.span>
           )}
         </AnimatePresence>

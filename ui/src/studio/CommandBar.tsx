@@ -8,20 +8,25 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { api } from "@/lib/api";
 import type { Org } from "@/lib/types";
+import { translate, useT } from "@/i18n";
 import { useOrg } from "@/store/org";
 import { Icon, type IconName } from "./icons";
 import { agentHue, hsl, stateLook } from "./look";
 import { PANES } from "./panes";
 import { useStudio } from "./store";
 
+/**
+ * The places you can jump to. The labels are getters so they follow the locale
+ * in effect, even though the array itself is built at module load.
+ */
 const PLACES: { label: string; path: string; icon: IconName }[] = [
-  { label: "Home", path: "/", icon: "home" },
-  { label: "Zeus, the supervisor", path: "/supervisor", icon: "zeus" },
-  { label: "Argus, oversight", path: "/argus", icon: "argus" },
-  { label: "Kronos, the host", path: "/kronos", icon: "kronos" },
-  { label: "Packs: libraries, assets, plugins", path: "/packs", icon: "packs" },
-  { label: "Benchmarks", path: "/benchmarks", icon: "bench" },
-  { label: "Settings", path: "/settings", icon: "settings" },
+  { get label() { return translate("shell.rail.home"); }, path: "/", icon: "home" },
+  { get label() { return translate("shell.rail.supervisor"); }, path: "/supervisor", icon: "zeus" },
+  { get label() { return translate("shell.rail.oversight"); }, path: "/argus", icon: "argus" },
+  { get label() { return translate("shell.command.placeKronos"); }, path: "/kronos", icon: "kronos" },
+  { get label() { return translate("shell.rail.packs"); }, path: "/packs", icon: "packs" },
+  { get label() { return translate("shell.rail.benchmarks"); }, path: "/benchmarks", icon: "bench" },
+  { get label() { return translate("shell.rail.settings"); }, path: "/settings", icon: "settings" },
 ];
 
 export function openPane(pane: string) {
@@ -29,6 +34,7 @@ export function openPane(pane: string) {
 }
 
 export function CommandBar() {
+  const t = useT();
   const open = useStudio((s) => s.commandOpen);
   const setOpen = useStudio((s) => s.setCommand);
   const select = useStudio((s) => s.select);
@@ -97,7 +103,7 @@ export function CommandBar() {
             style={{ background: "rgba(16,19,32,0.92)" }}
           >
             <Command
-              label="Command bar"
+              label={t("shell.command.label")}
               loop
               shouldFilter={!mention}
               // "@th" finds agents by name, as the start of a message to them.
@@ -112,36 +118,36 @@ export function CommandBar() {
                 autoFocus
                 value={search}
                 onValueChange={setSearch}
-                placeholder={inOrg ? "Go to, open, find… or @Agent tell them something" : "Go to, open, find…"}
+                placeholder={inOrg ? t("shell.command.placeholderOrg") : t("shell.command.placeholder")}
                 onKeyDown={(e) => e.key === "Escape" && setOpen(false)}
               />
               <Command.List>
                 {sent && <div className="px-4 py-3 text-sm text-[var(--st-green)]">{sent}</div>}
                 {mention && (
-                  <Command.Group heading="Send">
+                  <Command.Group heading={t("shell.command.groupSend")}>
                     <Command.Item
                       value={`send ${mention.agent.name}`}
                       onSelect={async () => {
                         await api.send(org!.id, { to: mention.agent.id, content: mention.text });
                         select(mention.agent.id);
                         openPane("console");
-                        setSent(`Sent to ${mention.agent.name}.`);
+                        setSent(t("shell.command.sentTo", { name: mention.agent.name }));
                         setTimeout(() => setOpen(false), 500);
                       }}
                     >
                       <Icon name="send" size={16} />
                       <span>
-                        Send to <b style={{ color: hsl(agentHue(mention.agent), 75, 80) }}>{mention.agent.name}</b>:{" "}
+                        {t("shell.command.sendTo")} <b style={{ color: hsl(agentHue(mention.agent), 75, 80) }}>{mention.agent.name}</b>:{" "}
                         <span className="text-[var(--st-ink-3)]">{mention.text.slice(0, 80)}</span>
                       </span>
                     </Command.Item>
                   </Command.Group>
                 )}
-                <Command.Empty>Nothing matches. Start with @ and an agent's name to message them.</Command.Empty>
+                <Command.Empty>{t("shell.command.empty")}</Command.Empty>
                 {inOrg && agents.length > 0 && (
-                  <Command.Group heading="Agents">
+                  <Command.Group heading={t("shell.command.groupAgents")}>
                     {agents.map((a) => {
-                      const look = stateLook(a.runtimeStatus, a.status);
+                      const look = stateLook(a.runtimeStatus, a.status, t);
                       return (
                         <Command.Item
                           key={a.id}
@@ -168,18 +174,18 @@ export function CommandBar() {
                   </Command.Group>
                 )}
                 {inOrg && (
-                  <Command.Group heading="Panes">
+                  <Command.Group heading={t("shell.command.groupPanes")}>
                     {PANES.map((p) => (
-                      <Command.Item key={p.id} value={`pane ${p.title} ${p.hint}`} onSelect={() => run(() => openPane(p.id))}>
+                      <Command.Item key={p.id} value={`pane ${t(`shell.pane.${p.id}.title`)} ${t(`shell.pane.${p.id}.hint`)}`} onSelect={() => run(() => openPane(p.id))}>
                         <Icon name={p.icon} size={16} />
-                        <span className="text-[var(--st-ink)]">{p.title}</span>
-                        <span className="truncate text-[var(--st-ink-3)]">{p.hint}</span>
+                        <span className="text-[var(--st-ink)]">{t(`shell.pane.${p.id}.title`)}</span>
+                        <span className="truncate text-[var(--st-ink-3)]">{t(`shell.pane.${p.id}.hint`)}</span>
                       </Command.Item>
                     ))}
                   </Command.Group>
                 )}
                 {inOrg && org && (
-                  <Command.Group heading="This org">
+                  <Command.Group heading={t("shell.command.groupThisOrg")}>
                     <Command.Item
                       value={org.status === "paused" ? "resume org" : "pause org"}
                       onSelect={() => run(() => {
@@ -188,20 +194,20 @@ export function CommandBar() {
                       })}
                     >
                       <Icon name={org.status === "paused" ? "play" : "pause"} size={16} />
-                      {org.status === "paused" ? "Resume all agents" : "Pause all agents"}
+                      {org.status === "paused" ? t("shell.command.resumeAllAgents") : t("shell.command.pauseAllAgents")}
                     </Command.Item>
                   </Command.Group>
                 )}
-                <Command.Group heading="Organizations">
+                <Command.Group heading={t("shell.command.groupOrganizations")}>
                   {orgs.map((o) => (
                     <Command.Item key={o.id} value={`org ${o.name}`} onSelect={() => run(() => navigate(`/org/${o.id}`))}>
                       <span className="size-2.5 rounded-full" style={{ background: hsl(agentHue({ name: o.name, avatar: {} }), 70, 62) }} />
                       <span className="text-[var(--st-ink)]">{o.name}</span>
-                      {(o.workingAgents ?? 0) > 0 && <span className="ml-auto text-[12px] text-[var(--st-violet)]">{o.workingAgents} working</span>}
+                      {(o.workingAgents ?? 0) > 0 && <span className="ml-auto text-[12px] text-[var(--st-violet)]">{t("shell.command.working", { count: o.workingAgents ?? 0 })}</span>}
                     </Command.Item>
                   ))}
                 </Command.Group>
-                <Command.Group heading="Go to">
+                <Command.Group heading={t("shell.command.groupGoTo")}>
                   {PLACES.map((p) => (
                     <Command.Item key={p.path} value={`go ${p.label}`} onSelect={() => run(() => navigate(p.path))}>
                       <Icon name={p.icon} size={16} /> {p.label}

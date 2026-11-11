@@ -17,6 +17,7 @@ import {
 } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useLocale, useT } from "@/i18n";
 import { api } from "@/lib/api";
 import type { WhiteboardScene } from "@/lib/types";
 import { editing, picture } from "@/lib/wbsync";
@@ -29,6 +30,8 @@ type Elements = Parameters<typeof getSceneVersion>[0];
 type Skeletons = Parameters<typeof convertToExcalidrawElements>[0];
 
 export default function WhiteboardEditor({ boardId }: { boardId: string }) {
+  const t = useT();
+  const locale = useLocale();
   const [scene, setScene] = useState<WhiteboardScene | null>(null);
   const [error, setError] = useState<string | null>(null);
   const excali = useRef<ExcalidrawImperativeAPI | null>(null);
@@ -85,8 +88,8 @@ export default function WhiteboardEditor({ boardId }: { boardId: string }) {
         setError(null);
         thumbnail(saved.version);
       })
-      .catch((e: Error) => setError(`Not saved: ${e.message}`));
-  }, [boardId, thumbnail]);
+      .catch((e: Error) => setError(t("files.notSaved", { error: e.message })));
+  }, [boardId, thumbnail, t]);
 
   // Someone else changed the board (an agent drew, or another viewer): merge it in.
   const pull = useCallback(async () => {
@@ -127,10 +130,11 @@ export default function WhiteboardEditor({ boardId }: { boardId: string }) {
   );
 
   if (error && !scene) return <div className="p-6 text-sm text-bad">{error}</div>;
-  if (!scene) return <div className="p-6 text-sm text-ink-3">Loading whiteboard…</div>;
+  if (!scene) return <div className="p-6 text-sm text-ink-3">{t("files.loadingWhiteboard")}</div>;
   return (
     <div className="relative h-full w-full">
       <Excalidraw
+        langCode={locale === "vi" ? "vi-VN" : "en"}
         excalidrawAPI={(x) => {
           excali.current = x;
           sent.current = getSceneVersion(scene.elements as Elements);

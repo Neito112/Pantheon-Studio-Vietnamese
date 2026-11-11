@@ -8,6 +8,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { useT } from "@/i18n";
 import { api } from "@/lib/api";
 import type { LibraryInfo } from "@/lib/types";
 import { cx } from "./ui";
@@ -21,11 +22,12 @@ interface Props {
 }
 
 export function LibraryPicker({ value, onChange, inherit }: Props) {
+  const t = useT();
   const [libs, setLibs] = useState<LibraryInfo[] | null>(null);
   useEffect(() => {
     api.packs().then((l) => setLibs(l.libraries)).catch(() => setLibs([]));
   }, []);
-  if (!libs) return <div className="text-xs text-ink-3">Loading libraries…</div>;
+  if (!libs) return <div className="text-xs text-ink-3">{t("packs.loadingLibraries")}</div>;
 
   const extra = libs.filter((l) => !l.core);
   const core = libs.filter((l) => l.core);
@@ -46,19 +48,19 @@ export function LibraryPicker({ value, onChange, inherit }: Props) {
           onClick={() => onChange(null)}
           className={cx("rounded-full border px-3 py-1", chosen === null ? "border-accent bg-accent/15 text-ink" : "border-line text-ink-2 hover:text-ink")}
         >
-          {inherit ? inherit.label : "Every library (and new ones)"}
+          {inherit ? inherit.label : t("packs.everyLibrary")}
         </button>
         <button
           type="button"
           onClick={() => onChange(shown ?? extra.map((l) => l.id))}
           className={cx("rounded-full border px-3 py-1", chosen !== null ? "border-accent bg-accent/15 text-ink" : "border-line text-ink-2 hover:text-ink")}
         >
-          Only the ones I pick
+          {t("packs.onlyPicked")}
         </button>
       </div>
       <div className={cx("flex flex-wrap gap-1.5", chosen === null && "opacity-60")}>
         {core.map((l) => (
-          <span key={l.id} title={`${l.summary} (always on: the Stage needs it)`} className="rounded-md border border-line bg-panel-2 px-2 py-1 text-xs text-ink-3">
+          <span key={l.id} title={t("packs.alwaysOnTitle", { summary: l.summary })} className="rounded-md border border-line bg-panel-2 px-2 py-1 text-xs text-ink-3">
             🔒 {l.name}
           </span>
         ))}
@@ -68,7 +70,7 @@ export function LibraryPicker({ value, onChange, inherit }: Props) {
             type="button"
             disabled={chosen === null}
             onClick={() => toggle(l.id)}
-            title={`${l.summary}${needs(l).length ? ` (brings ${needs(l).join(", ")})` : ""}\nimport from ${l.imports.filter((i) => !i.startsWith("three/")).join(", ")}`}
+            title={`${needs(l).length ? t("packs.libraryTitleBrings", { summary: l.summary, names: needs(l).join(", ") }) : t("packs.libraryTitle", { summary: l.summary })}\n${t("packs.libraryTitleImport", { imports: l.imports.filter((i) => !i.startsWith("three/")).join(", ") })}`}
             className={cx(
               "rounded-md border px-2 py-1 text-xs transition-colors",
               on(l.id) ? "border-accent/60 bg-accent/15 text-ink" : "border-line text-ink-3 hover:text-ink-2",
@@ -80,11 +82,11 @@ export function LibraryPicker({ value, onChange, inherit }: Props) {
         ))}
       </div>
       <div className="text-xs text-ink-3">
-        Any npm library can be added on the{" "}
+        {t("packs.addNpmHint")}{" "}
         <Link href="/packs" className="text-accent hover:underline">
-          Packs
+          {t("files.packsPage")}
         </Link>{" "}
-        page, or by asking Zeus.
+        {t("packs.addNpmHintTail")}
       </div>
     </div>
   );

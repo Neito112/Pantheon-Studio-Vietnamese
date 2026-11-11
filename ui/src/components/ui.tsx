@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type Ref, type SelectHTMLAttributes, type TextareaHTMLAttributes } from "react";
+import { useT } from "@/i18n";
 
 export function cx(...parts: (string | false | null | undefined)[]): string {
   return parts.filter(Boolean).join(" ");
@@ -151,6 +152,7 @@ export function Modal({
   wide?: boolean;
   footer?: ReactNode;
 }) {
+  const t = useT();
   useEffect(() => {
     if (!open) return;
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -166,7 +168,7 @@ export function Modal({
       >
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
           <div className="text-sm font-semibold">{title}</div>
-          <button onClick={onClose} className="text-ink-3 hover:text-ink cursor-pointer" aria-label="Close">
+          <button onClick={onClose} className="text-ink-3 hover:text-ink cursor-pointer" aria-label={t("common.close")}>
             ✕
           </button>
         </div>

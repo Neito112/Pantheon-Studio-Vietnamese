@@ -2,27 +2,91 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { Badge, Button, cx, ErrorNote, Field, Input, Select } from "@/components/ui";
+import { useT } from "@/i18n";
 import type { Agent } from "@/lib/types";
 import { useAssetVersion } from "./assets";
 import { CATALOG, CATEGORIES, type CatalogEntry, type Category } from "./catalog";
 import { proceduralThumb } from "./proceduralThumb";
-import { themeIds, themeOf } from "./themes";
+import { THEMES, themeIds, themeOf } from "./themes";
 import { generateDesign, newId, type FloorStyle, type OfficeDesign, type RoomType, type Side, type WallKind } from "./design";
 import { patchItem, patchRoom, useDesigner } from "./designerStore";
 
-const ROOM_TYPES: { value: RoomType; label: string; hint: string }[] = [
-  { value: "meeting", label: "Meeting room", hint: "Meetings are held here, using its chairs" },
-  { value: "lounge", label: "Lounge", hint: "Idle agents take breaks here" },
-  { value: "kitchen", label: "Kitchen", hint: "Idle agents take breaks here" },
-  { value: "team", label: "Team area", hint: "Agents whose team matches the name sit here" },
-  { value: "focus", label: "Focus room", hint: "Decorative" },
-  { value: "reception", label: "Reception", hint: "Decorative" },
-  { value: "home", label: "Home", hint: "A house or living room" },
-  { value: "bedroom", label: "Bedroom", hint: "Decorative" },
-  { value: "washroom", label: "Washroom", hint: "Decorative" },
-  { value: "garden", label: "Garden", hint: "Outdoors: a garden, a camp, a park" },
-  { value: "custom", label: "Custom", hint: "Decorative" },
+const ROOM_TYPES: RoomType[] = [
+  "meeting",
+  "lounge",
+  "kitchen",
+  "team",
+  "focus",
+  "reception",
+  "home",
+  "bedroom",
+  "washroom",
+  "garden",
+  "custom",
 ];
+
+const ROOM_HINT_KEY: Record<RoomType, string> = {
+  meeting: "office.roomHint.meeting",
+  lounge: "office.roomHint.idleBreak",
+  kitchen: "office.roomHint.idleBreak",
+  team: "office.roomHint.team",
+  focus: "office.roomHint.decorative",
+  reception: "office.roomHint.decorative",
+  home: "office.roomHint.home",
+  bedroom: "office.roomHint.decorative",
+  washroom: "office.roomHint.decorative",
+  garden: "office.roomHint.garden",
+  custom: "office.roomHint.decorative",
+};
+
+const FLOORS: { value: FloorStyle; key: string }[] = [
+  { value: "oak", key: "office.floor.oak" },
+  { value: "walnut", key: "office.floor.walnut" },
+  { value: "concrete", key: "office.floor.concrete" },
+  { value: "polished", key: "office.floor.polished" },
+  { value: "slate", key: "office.floor.slate" },
+  { value: "epoxy", key: "office.floor.epoxy" },
+  { value: "carpet", key: "office.floor.carpet" },
+  { value: "tile", key: "office.floor.tile" },
+  { value: "grass", key: "office.floor.grass" },
+  { value: "asphalt", key: "office.floor.asphalt" },
+];
+
+const CATEGORY_KEYS: Record<string, string> = {
+  Workstations: "office.cat.workstations",
+  Meeting: "office.cat.meeting",
+  Seating: "office.cat.seating",
+  Tables: "office.cat.tables",
+  Lounge: "office.cat.lounge",
+  Kitchen: "office.cat.kitchen",
+  Storage: "office.cat.storage",
+  Tech: "office.cat.tech",
+  Decor: "office.cat.decor",
+  Walls: "office.cat.walls",
+  Home: "office.cat.home",
+  Nature: "office.cat.nature",
+  Industrial: "office.cat.industrial",
+  "Sci-fi": "office.cat.scifi",
+  Outdoor: "office.cat.outdoor",
+  Vehicles: "office.cat.vehicles",
+  Props: "office.cat.props",
+  Custom: "office.cat.custom",
+};
+
+type TFn = (key: string, params?: Record<string, string | number>) => string;
+
+function themeLabel(id: string, t: TFn): string {
+  return THEMES[id]?.label ?? t("office.themeClassic");
+}
+
+function themeDescription(id: string, t: TFn): string {
+  return THEMES[id]?.description ?? t("office.themeClassicDesc");
+}
+
+function categoryLabel(c: string, t: TFn): string {
+  const key = CATEGORY_KEYS[c];
+  return key ? t(key) : c;
+}
 
 export function DesignerToolbar({
   agents,
@@ -37,6 +101,7 @@ export function DesignerToolbar({
   saving: boolean;
   error: string | null;
 }) {
+  const t = useT();
   const draft = useDesigner((s) => s.draft)!;
   const tool = useDesigner((s) => s.tool);
   // After picking a theme: rebuild the layout in its style, or keep the furniture?
@@ -47,79 +112,74 @@ export function DesignerToolbar({
   const { update, undo, redo, setTool } = useDesigner.getState();
   return (
     <div className="pointer-events-auto flex flex-wrap items-center gap-2 rounded-xl border border-line-2 bg-panel/95 px-3 py-2 shadow-2xl backdrop-blur">
-      <span className="mr-1 text-sm font-semibold">Office designer</span>
-      <Button size="sm" variant={tool.kind === "select" ? "primary" : "secondary"} onClick={() => setTool({ kind: "select" })} title="Select & move (Esc)">
-        ⬚ Select
+      <span className="mr-1 text-sm font-semibold">{t("office.designer")}</span>
+      <Button size="sm" variant={tool.kind === "select" ? "primary" : "secondary"} onClick={() => setTool({ kind: "select" })} title={t("office.selectTitle")}>
+        ⬚ {t("common.select")}
       </Button>
-      <Button size="sm" variant={tool.kind === "room" ? "primary" : "secondary"} onClick={() => setTool({ kind: "room" })} title="Drag on the floor to draw a room">
-        ▭ Draw room
+      <Button size="sm" variant={tool.kind === "room" ? "primary" : "secondary"} onClick={() => setTool({ kind: "room" })} title={t("office.drawRoomTitle")}>
+        {t("office.drawRoom")}
       </Button>
       <span className="mx-1 h-5 w-px bg-line-2" />
-      <Button size="sm" variant="ghost" disabled={!canUndo} onClick={undo} title="Undo (Ctrl+Z)">
+      <Button size="sm" variant="ghost" disabled={!canUndo} onClick={undo} title={t("office.undoTitle")}>
         ↶
       </Button>
-      <Button size="sm" variant="ghost" disabled={!canRedo} onClick={redo} title="Redo (Ctrl+Y)">
+      <Button size="sm" variant="ghost" disabled={!canRedo} onClick={redo} title={t("office.redoTitle")}>
         ↷
       </Button>
       <span className="mx-1 h-5 w-px bg-line-2" />
       <Select
         className="h-7 w-36 text-xs"
-        title="Theme: the look of the whole space"
+        title={t("office.themeTitle")}
         value={draft.theme ?? "classic"}
         onChange={(e) => {
-          const t = themeOf(e.target.value);
-          update((d) => ({ ...d, theme: t.id, floor: t.floor }));
-          setOffer(t.id);
+          const picked = themeOf(e.target.value);
+          update((d) => ({ ...d, theme: picked.id, floor: picked.floor }));
+          setOffer(picked.id);
         }}
       >
         {themeIds().map((id) => (
-          <option key={id} value={id} title={themeOf(id).description}>
-            {themeOf(id).label}
+          <option key={id} value={id} title={themeDescription(id, t)}>
+            {themeLabel(id, t)}
           </option>
         ))}
       </Select>
       <Select className="h-7 w-28 text-xs" value={draft.floor} onChange={(e) => update((d) => ({ ...d, floor: e.target.value as FloorStyle }))}>
-        <option value="oak">Oak floor</option>
-        <option value="walnut">Walnut floor</option>
-        <option value="concrete">Concrete</option>
-        <option value="polished">Polished concrete</option>
-        <option value="slate">Slate</option>
-        <option value="epoxy">Epoxy (industrial)</option>
-        <option value="carpet">Carpet</option>
-        <option value="tile">Tile</option>
-        <option value="grass">Grass</option>
-        <option value="asphalt">Asphalt</option>
+        {FLOORS.map((f) => (
+          <option key={f.value} value={f.value}>
+            {t(f.key)}
+          </option>
+        ))}
       </Select>
-      <label className="flex items-center gap-1 text-xs text-ink-2">
+      <label className="flex items-center gap-1 text-xs text-ink-2" title={t("office.width")}>
         W
         <Input className="h-7 w-16 text-xs" type="number" min={10} max={120} value={draft.width} onChange={(e) => update((d) => ({ ...d, width: clampNum(e.target.value, 10, 120) }))} />
       </label>
-      <label className="flex items-center gap-1 text-xs text-ink-2">
+      <label className="flex items-center gap-1 text-xs text-ink-2" title={t("office.depth")}>
         D
         <Input className="h-7 w-16 text-xs" type="number" min={10} max={120} value={draft.depth} onChange={(e) => update((d) => ({ ...d, depth: clampNum(e.target.value, 10, 120) }))} />
       </label>
-      <Button size="sm" variant="ghost" onClick={() => update((d) => generateDesign(agents, d.theme))} title="Replace with a generated office in this theme's style">
-        ⟲ Regenerate
+      <Button size="sm" variant="ghost" onClick={() => update((d) => generateDesign(agents, d.theme))} title={t("office.regenerateTitle")}>
+        {t("office.regenerate")}
       </Button>
       {offer && (
         <span className="flex items-center gap-1.5 rounded-md bg-accent/15 px-2 py-1 text-xs">
-          Rebuild the office in the {themeOf(offer).label} style?
+          {t("office.rebuildPrompt", { theme: themeLabel(offer, t) })}
           <Button size="sm" variant="primary" onClick={() => (update(() => generateDesign(agents, offer)), setOffer(null))}>
-            Rebuild
+            {t("office.rebuild")}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => setOffer(null)}>
-            Just the look
+            {t("office.justTheLook")}
           </Button>
         </span>
       )}
       <div className="ml-auto flex items-center gap-2">
         <ErrorNote error={error} />
-        {dirty && <Badge tone="warn">unsaved</Badge>}
+        {dirty && <Badge tone="warn">{t("office.unsaved")}</Badge>}
         <Button size="sm" variant="ghost" onClick={onCancel}>
-          Close
+          {t("common.close")}
         </Button>
         <Button size="sm" variant="primary" onClick={onSave} loading={saving} disabled={!dirty}>
-          Save office
+          {t("office.saveOffice")}
         </Button>
       </div>
     </div>
@@ -127,6 +187,7 @@ export function DesignerToolbar({
 }
 
 export function CatalogPanel() {
+  const t = useT();
   const tool = useDesigner((s) => s.tool);
   const [cat, setCat] = useState<Category>("Workstations");
   const [q, setQ] = useState("");
@@ -139,7 +200,7 @@ export function CatalogPanel() {
   return (
     <div className="pointer-events-auto flex h-full w-64 flex-col rounded-xl border border-line-2 bg-panel/95 shadow-2xl backdrop-blur">
       <div className="border-b border-line p-2.5">
-        <Input className="h-8 text-xs" placeholder="Search furniture…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input className="h-8 text-xs" placeholder={t("office.searchFurniture")} value={q} onChange={(e) => setQ(e.target.value)} />
         {!q && (
           <div className="mt-2 flex flex-wrap gap-1">
             {CATEGORIES.map((c) => (
@@ -148,7 +209,7 @@ export function CatalogPanel() {
                 onClick={() => setCat(c)}
                 className={cx("rounded px-1.5 py-0.5 text-[11px] cursor-pointer", cat === c ? "bg-accent-2 text-white" : "bg-panel-2 text-ink-2 hover:text-ink")}
               >
-                {c}
+                {categoryLabel(c, t)}
               </button>
             ))}
           </div>
@@ -171,14 +232,22 @@ export function CatalogPanel() {
         ))}
       </div>
       <div className="border-t border-line p-2.5 text-[10.5px] leading-relaxed text-ink-3">
-        Click an item, then click the floor to place it (hold <b>Shift</b> to place several). <b>R</b> rotates, <b>Del</b> removes,
-        <b> Ctrl+D</b> duplicates, arrows nudge. Right-drag pans, scroll zooms.
+        {t("office.catalogHintHold")}
+        <b>Shift</b>
+        {t("office.catalogHintSeveral")}
+        <b>R</b>
+        {t("office.catalogHintRotates")}
+        <b>Del</b>
+        {t("office.catalogHintRemoves")}
+        <b> Ctrl+D</b>
+        {t("office.catalogHintRest")}
       </div>
     </div>
   );
 }
 
 export function PropertiesPanel({ agents }: { agents: Agent[] }) {
+  const t = useT();
   const draft = useDesigner((s) => s.draft)!;
   const selection = useDesigner((s) => s.selection);
   const tool = useDesigner((s) => s.tool);
@@ -190,10 +259,10 @@ export function PropertiesPanel({ agents }: { agents: Agent[] }) {
   if (tool.kind === "place") {
     const e = CATALOG[tool.key];
     return (
-      <Panel title={`Placing: ${e?.label}`}>
-        <p className="text-xs text-ink-2">Click the floor to place. Press R to rotate before placing.</p>
+      <Panel title={t("office.placing", { label: e?.label ?? "" })}>
+        <p className="text-xs text-ink-2">{t("office.placingHint")}</p>
         <Button size="sm" className="mt-3" onClick={() => useDesigner.getState().setTool({ ...tool, rot: tool.rot + Math.PI / 2 })}>
-          ⟳ Rotate
+          {t("office.rotate")}
         </Button>
       </Panel>
     );
@@ -213,10 +282,10 @@ export function PropertiesPanel({ agents }: { agents: Agent[] }) {
         <div className="mt-2 flex gap-1.5">
           <Button size="sm" onClick={() => update((d) => patchItem(d, item.id, { rot: item.rot - Math.PI / 2 }))}>⟲ 90°</Button>
           <Button size="sm" onClick={() => update((d) => patchItem(d, item.id, { rot: item.rot + Math.PI / 2 }))}>⟳ 90°</Button>
-          <Button size="sm" onClick={() => duplicate(item.id)}>Duplicate</Button>
+          <Button size="sm" onClick={() => duplicate(item.id)}>{t("office.duplicate")}</Button>
         </div>
         {e?.workstation && (
-          <Field label="Assigned to">
+          <Field label={t("office.assignedTo")}>
             <Select
               className="mt-1 h-8"
               value={item.agentId ?? ""}
@@ -229,62 +298,62 @@ export function PropertiesPanel({ agents }: { agents: Agent[] }) {
                 }))
               }
             >
-              <option value="">Automatic (first free agent)</option>
+              <option value="">{t("office.assignedAuto")}</option>
               {agents.map((a) => (
                 <option key={a.id} value={a.id}>
                   {a.name}
-                  {assigned.has(a.id) && assigned.get(a.id) !== item.id ? " (moves here)" : ""}
+                  {assigned.has(a.id) && assigned.get(a.id) !== item.id ? t("office.movesHere") : ""}
                 </option>
               ))}
             </Select>
           </Field>
         )}
         <Button size="sm" variant="danger" className="mt-3" onClick={() => remove()}>
-          Remove
+          {t("common.remove")}
         </Button>
       </Panel>
     );
   }
   if (room) {
     return (
-      <Panel title="Room">
+      <Panel title={t("office.room")}>
         <div className="grid gap-2.5">
-          <Field label="Name">
+          <Field label={t("common.name")}>
             <Input className="h-8" value={room.name} onChange={(e) => update((d) => patchRoom(d, room.id, { name: e.target.value }), false)} onBlur={() => useDesigner.getState().checkpoint()} />
           </Field>
-          <Field label="Purpose" hint={ROOM_TYPES.find((t) => t.value === room.type)?.hint}>
+          <Field label={t("office.purpose")} hint={ROOM_HINT_KEY[room.type] ? t(ROOM_HINT_KEY[room.type]) : undefined}>
             <Select className="h-8" value={room.type} onChange={(e) => update((d) => patchRoom(d, room.id, { type: e.target.value as RoomType }))}>
-              {ROOM_TYPES.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
+              {ROOM_TYPES.map((type) => (
+                <option key={type} value={type}>
+                  {t(`office.roomType.${type}`)}
                 </option>
               ))}
             </Select>
           </Field>
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Walls">
+            <Field label={t("office.walls")}>
               <Select className="h-8" value={room.walls} onChange={(e) => update((d) => patchRoom(d, room.id, { walls: e.target.value as WallKind }))}>
-                <option value="none">None (zone)</option>
-                <option value="glass">Glass</option>
-                <option value="solid">Solid</option>
+                <option value="none">{t("office.wallsNone")}</option>
+                <option value="glass">{t("office.wallsGlass")}</option>
+                <option value="solid">{t("office.wallsSolid")}</option>
               </Select>
             </Field>
-            <Field label="Door">
+            <Field label={t("office.door")}>
               <Select className="h-8" value={room.door} onChange={(e) => update((d) => patchRoom(d, room.id, { door: e.target.value as Side }))}>
-                <option value="n">North</option>
-                <option value="s">South</option>
-                <option value="e">East</option>
-                <option value="w">West</option>
+                <option value="n">{t("office.north")}</option>
+                <option value="s">{t("office.south")}</option>
+                <option value="e">{t("office.east")}</option>
+                <option value="w">{t("office.west")}</option>
               </Select>
             </Field>
             {(["x", "z", "w", "d"] as const).map((k) => (
-              <Field key={k} label={{ x: "X", z: "Z", w: "Width", d: "Depth" }[k]}>
+              <Field key={k} label={{ x: "X", z: "Z", w: t("office.width"), d: t("office.depth") }[k]}>
                 <Input className="h-8" type="number" step={0.25} value={room[k]} onChange={(e) => update((d) => patchRoom(d, room.id, { [k]: Math.max(k === "w" || k === "d" ? 2 : 0, Number(e.target.value)) }))} />
               </Field>
             ))}
           </div>
           <Button size="sm" variant="danger" onClick={() => remove()}>
-            Remove room
+            {t("office.removeRoom")}
           </Button>
         </div>
       </Panel>
@@ -292,14 +361,16 @@ export function PropertiesPanel({ agents }: { agents: Agent[] }) {
   }
   const stations = draft.items.filter((i) => CATALOG[i.kind]?.workstation).length;
   return (
-    <Panel title="Office">
+    <Panel title={t("shell.pane.office.title")}>
       <div className="space-y-1.5 text-xs text-ink-2">
-        <div>{draft.items.length} items · {draft.rooms.length} rooms</div>
-        <div className={stations < agents.length ? "text-warn" : ""}>
-          {stations} workstations for {agents.length} agents
-          {stations < agents.length && " — extra desks are added automatically until you place more"}
+        <div>
+          {t("common.itemsCount", { count: draft.items.length })} · {t("office.roomsCount", { count: draft.rooms.length })}
         </div>
-        <p className="pt-2 text-ink-3">Select something to edit it, pick furniture from the catalog, or draw a room.</p>
+        <div className={stations < agents.length ? "text-warn" : ""}>
+          {t("office.workstationsCount", { count: stations })} {t("office.forAgents", { count: agents.length })}
+          {stations < agents.length && t("office.extraDesks")}
+        </div>
+        <p className="pt-2 text-ink-3">{t("office.officeHint")}</p>
       </div>
     </Panel>
   );

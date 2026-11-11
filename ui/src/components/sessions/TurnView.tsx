@@ -4,14 +4,16 @@ import { useEffect, useState } from "react";
 import { AgentAvatar, UserAvatar } from "@/components/agent";
 import { Markdown } from "@/components/Markdown";
 import { Badge, Button, cx, Modal, Spinner } from "@/components/ui";
+import { formatCurrency, formatDateTime, formatDuration, formatNumber, useLocale, useT } from "@/i18n";
 import { api } from "@/lib/api";
-import { dateTime, duration, tokens, usd } from "@/lib/format";
 import type { LlmCall, Message, ToolCall, TurnDetail } from "@/lib/types";
 import { agentName, useOrg } from "@/store/org";
 
 const TONE = { running: "accent", completed: "ok", failed: "bad", awaiting_approval: "warn", stopped: "neutral" } as const;
 
 export function TurnView({ turnId }: { turnId: string }) {
+  const t = useT();
+  const locale = useLocale();
   const [turn, setTurn] = useState<TurnDetail | null>(null);
   const [raw, setRaw] = useState<string | null>(null);
   const version = useOrg((s) => s.turnsVersion);
@@ -50,21 +52,24 @@ export function TurnView({ turnId }: { turnId: string }) {
             <span className="font-mono text-xs text-ink-3">{turn.id}</span>
           </div>
           <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-3">
-            <span>{dateTime(turn.startedAt)}</span>
-            {elapsed !== null && <span>{duration(elapsed)}</span>}
-            <span>{turn.steps} model steps</span>
+            <span>{formatDateTime(locale, turn.startedAt)}</span>
+            {elapsed !== null && <span>{formatDuration(locale, elapsed / 1000)}</span>}
+            <span>{t("sessions.turn.modelSteps", { count: turn.steps })}</span>
             <span>
-              {tokens(turn.inputTokens)} in / {tokens(turn.outputTokens)} out
+              {t("sessions.turn.tokensInOut", {
+                inTokens: formatNumber(locale, turn.inputTokens),
+                outTokens: formatNumber(locale, turn.outputTokens),
+              })}
             </span>
-            {turn.costUsd > 0 && <span>{usd(turn.costUsd)}</span>}
-            {turn.attempts > 1 && <span className="text-warn">{turn.attempts} attempts</span>}
+            {turn.costUsd > 0 && <span>{formatCurrency(locale, turn.costUsd)}</span>}
+            {turn.attempts > 1 && <span className="text-warn">{t("sessions.turn.attempts", { count: turn.attempts })}</span>}
           </div>
         </div>
       </div>
       {turn.error && <div className="mt-4 rounded-lg border border-bad/30 bg-bad/10 p-3 font-mono text-xs text-bad whitespace-pre-wrap">{turn.error}</div>}
 
       <Timeline>
-        <Step icon="📥" title="Inbox" subtitle={`${turn.inbox.length} message${turn.inbox.length === 1 ? "" : "s"}`}>
+        <Step icon="📥" title={t("sessions.turn.inbox")} subtitle={t("sessions.turn.messageCount", { count: turn.inbox.length })}>
           <div className="space-y-2">
             {turn.inbox.map((m) => (
               <InboxMessage key={m.id} m={m} />
@@ -75,7 +80,7 @@ export function TurnView({ turnId }: { turnId: string }) {
         {other
           .filter((c) => c.purpose === "compaction")
           .map((c) => (
-            <Step key={c.id} icon="🗜" title="Memory compaction" subtitle={`${c.model} · ${duration(c.latencyMs)}`}>
+            <Step key={c.id} icon="🗜" title={t("sessions.turn.compaction")} subtitle={`${c.model} · ${formatDuration(locale, c.latencyMs / 1000)}`}>
               <div className="text-sm text-ink-2">{c.response.content}</div>
             </Step>
           ))}
@@ -85,13 +90,13 @@ export function TurnView({ turnId }: { turnId: string }) {
         ))}
 
         {turn.status === "running" && (
-          <Step icon="⏳" title="Working…">
+          <Step icon="⏳" title={t("sessions.turn.working")}>
             <LiveStream agentId={turn.agentId} />
           </Step>
         )}
 
         {turn.sent.length > 0 && (
-          <Step icon="📤" title="Messages sent" subtitle={`${turn.sent.length}`}>
+          <Step icon="📤" title={t("sessions.turn.messagesSent")} subtitle={`${turn.sent.length}`}>
             <div className="space-y-2">
               {turn.sent.map((m) => (
                 <SentMessage key={m.id} m={m} />
@@ -101,7 +106,7 @@ export function TurnView({ turnId }: { turnId: string }) {
         )}
 
         {other.filter((c) => c.purpose === "meeting").length > 0 && (
-          <Step icon="◎" title="Meeting model calls" subtitle={`${other.filter((c) => c.purpose === "meeting").length}`}>
+          <Step icon="◎" title={t("sessions.turn.meetingCalls")} subtitle={`${other.filter((c) => c.purpose === "meeting").length}`}>
             <div className="space-y-1.5">
               {other
                 .filter((c) => c.purpose === "meeting")
@@ -140,23 +145,25 @@ function Step({ icon, title, subtitle, children, tone }: { icon: string; title: 
 }
 
 function ModelStep({ call, index, tools, onRaw }: { call: LlmCall; index: number; tools: Map<string, ToolCall>; onRaw: () => void }) {
+  const t = useT();
+  const locale = useLocale();
   const [showReasoning, setShowReasoning] = useState(false);
   const r = call.response;
   return (
     <Step
       icon={call.error ? "⚠" : "🧠"}
       tone={call.error ? "bad" : undefined}
-      title={`Step ${index}`}
+      title={t("sessions.turn.step", { index })}
       subtitle={
         <span className="flex flex-wrap items-center gap-3">
           <span>{call.model}</span>
-          <span>{duration(call.latencyMs)}</span>
+          <span>{formatDuration(locale, call.latencyMs / 1000)}</span>
           <span>
-            {tokens(call.inputTokens)}→{tokens(call.outputTokens)}
+            {formatNumber(locale, call.inputTokens)}→{formatNumber(locale, call.outputTokens)}
           </span>
-          {call.costUsd > 0 && <span>{usd(call.costUsd)}</span>}
+          {call.costUsd > 0 && <span>{formatCurrency(locale, call.costUsd)}</span>}
           <button onClick={onRaw} className="text-info hover:underline cursor-pointer">
-            raw prompt
+            {t("sessions.turn.rawPrompt")}
           </button>
         </span>
       }
@@ -165,7 +172,7 @@ function ModelStep({ call, index, tools, onRaw }: { call: LlmCall; index: number
       {r.reasoning && (
         <div className="mb-2">
           <button onClick={() => setShowReasoning((v) => !v)} className="text-xs text-ink-3 hover:text-ink cursor-pointer">
-            {showReasoning ? "▾" : "▸"} Reasoning ({r.reasoning.length} chars)
+            {showReasoning ? "▾" : "▸"} {t("sessions.turn.reasoning", { count: r.reasoning.length })}
           </button>
           {showReasoning && <div className="mt-1.5 rounded-md border border-line bg-bg p-3 text-xs italic leading-relaxed text-ink-2 whitespace-pre-wrap">{r.reasoning}</div>}
         </div>
@@ -182,12 +189,14 @@ function ModelStep({ call, index, tools, onRaw }: { call: LlmCall; index: number
           ))}
         </div>
       )}
-      {!r.content && !(r.tool_calls ?? []).length && !call.error && <div className="text-xs text-ink-3">(empty response)</div>}
+      {!r.content && !(r.tool_calls ?? []).length && !call.error && <div className="text-xs text-ink-3">{t("sessions.turn.emptyResponse")}</div>}
     </Step>
   );
 }
 
 function ToolBlock({ name, args, result }: { name: string; args: Record<string, unknown>; result?: ToolCall }) {
+  const t = useT();
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const tone = !result ? "neutral" : result.status === "ok" ? "ok" : result.status === "denied" ? "warn" : result.status === "running" ? "accent" : "bad";
   const argSummary = Object.entries(args)
@@ -199,18 +208,18 @@ function ToolBlock({ name, args, result }: { name: string; args: Record<string, 
         <span className="text-ink-3">{open ? "▾" : "▸"}</span>
         <code className="font-mono text-xs font-semibold text-info">{name}</code>
         <span className="min-w-0 flex-1 truncate font-mono text-[11px] text-ink-3">{argSummary}</span>
-        <Badge tone={tone}>{result ? result.status : "no result"}</Badge>
-        {result && <span className="text-[11px] text-ink-3">{duration(result.durationMs)}</span>}
+        <Badge tone={tone}>{result ? result.status : t("sessions.turn.noResult")}</Badge>
+        {result && <span className="text-[11px] text-ink-3">{formatDuration(locale, result.durationMs / 1000)}</span>}
       </button>
       {open && (
         <div className="grid gap-2 bg-bg p-3">
           <div>
-            <div className="mb-1 text-[11px] uppercase tracking-wider text-ink-3">Arguments</div>
+            <div className="mb-1 text-[11px] uppercase tracking-wider text-ink-3">{t("sessions.turn.arguments")}</div>
             <pre className="max-h-72 overflow-auto rounded border border-line bg-panel p-2 font-mono text-xs text-ink-2">{JSON.stringify(args, null, 2)}</pre>
           </div>
           {result && (
             <div>
-              <div className="mb-1 text-[11px] uppercase tracking-wider text-ink-3">Result</div>
+              <div className="mb-1 text-[11px] uppercase tracking-wider text-ink-3">{t("sessions.turn.result")}</div>
               <pre className="max-h-96 overflow-auto rounded border border-line bg-panel p-2 font-mono text-xs text-ink-2 whitespace-pre-wrap">{result.result}</pre>
             </div>
           )}
@@ -221,13 +230,17 @@ function ToolBlock({ name, args, result }: { name: string; args: Record<string, 
 }
 
 function InboxMessage({ m }: { m: Message }) {
+  const t = useT();
   const agent = useOrg((s) => s.agents[m.senderId]);
   return (
     <div className="flex gap-2.5 rounded-md border border-line bg-panel p-2.5">
       {m.senderType === "user" ? <UserAvatar size={22} /> : m.senderType === "system" ? <span className="w-[22px] text-center">⚙</span> : <AgentAvatar agent={agent} size={22} />}
       <div className="min-w-0 flex-1">
         <div className="text-xs text-ink-3">
-          <span className="font-medium text-ink-2">{m.senderType === "user" ? "You" : m.senderType === "system" ? "System" : (agent?.name ?? String(m.meta?.senderName ?? m.senderId))}</span> · {m.kind.replace("_", " ")}
+          <span className="font-medium text-ink-2">
+            {m.senderType === "user" ? t("sessions.turn.senderYou") : m.senderType === "system" ? t("sessions.turn.senderSystem") : (agent?.name ?? String(m.meta?.senderName ?? m.senderId))}
+          </span>{" "}
+          · {m.kind.replace("_", " ")}
         </div>
         <Markdown className="mt-0.5">{m.content}</Markdown>
       </div>
@@ -250,28 +263,33 @@ function SentMessage({ m }: { m: Message }) {
 }
 
 function LiveStream({ agentId }: { agentId: string }) {
+  const t = useT();
   const stream = useOrg((s) => s.live[agentId]?.stream ?? "");
   const tool = useOrg((s) => s.live[agentId]?.tool);
   return (
     <div className="rounded-md bg-bg p-2.5 font-mono text-xs text-ink-2 whitespace-pre-wrap">
-      {tool ? `running ${tool}…` : stream ? stream.slice(-1200) : "thinking…"}
+      {tool ? t("sessions.turn.liveRunning", { tool }) : stream ? stream.slice(-1200) : t("sessions.turn.liveThinking")}
     </div>
   );
 }
 
 function RawPrompt({ callId, onClose }: { callId: string; onClose: () => void }) {
+  const t = useT();
   const [call, setCall] = useState<LlmCall | null>(null);
   useEffect(() => {
     api.llmCall(callId).then(setCall).catch(() => {});
   }, [callId]);
   return (
-    <Modal open onClose={onClose} title="Exact prompt sent to the model" wide footer={<Button onClick={onClose}>Close</Button>}>
+    <Modal open onClose={onClose} title={t("sessions.turn.rawTitle")} wide footer={<Button onClick={onClose}>{t("common.close")}</Button>}>
       {!call?.request ? (
         <Spinner />
       ) : (
         <div className="space-y-3">
           <div className="text-xs text-ink-3">
-            {call.request.provider} · {call.request.model} · tools offered: {call.request.tools.join(", ") || "none"}
+            {call.request.provider} · {call.request.model} ·{" "}
+            {t("sessions.turn.rawToolsOffered", {
+              tools: call.request.tools.join(", ") || t("sessions.turn.rawNone"),
+            })}
           </div>
           {call.request.messages.map((m, i) => (
             <div key={i} className="rounded-md border border-line">
@@ -281,7 +299,7 @@ function RawPrompt({ callId, onClose }: { callId: string; onClose: () => void })
               </div>
               <pre className="max-h-96 overflow-auto p-3 font-mono text-xs leading-relaxed text-ink-2 whitespace-pre-wrap">
                 {m.content}
-                {m.tool_calls && `\n\n→ tool calls: ${JSON.stringify(m.tool_calls, null, 2)}`}
+                {m.tool_calls && `\n\n→ ${t("sessions.turn.rawToolCalls")} ${JSON.stringify(m.tool_calls, null, 2)}`}
               </pre>
             </div>
           ))}

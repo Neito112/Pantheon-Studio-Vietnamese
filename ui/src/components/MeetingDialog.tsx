@@ -3,20 +3,22 @@
 import { useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { api } from "@/lib/api";
+import { useT } from "@/i18n";
 import { useOrg } from "@/store/org";
 import { AgentAvatar } from "./agent";
 import { Button, cx, ErrorNote, Field, Input, Modal, Select, Textarea, Toggle } from "./ui";
 import { engineHttp } from "@/lib/engine";
 
 const STYLES = [
-  { value: "discussion", label: "Discussion", hint: "Share information and perspectives" },
-  { value: "decision", label: "Decision", hint: "Converge on one outcome; everyone states a position" },
-  { value: "brainstorm", label: "Brainstorm", hint: "Generate many ideas, no criticism at first" },
-  { value: "standup", label: "Standup", hint: "Done / next / blockers — one quick round" },
-  { value: "review", label: "Review", hint: "Critique a deliverable concretely" },
+  { value: "discussion", label: "agents.meeting.styleDiscussion", hint: "agents.meeting.styleDiscussionHint" },
+  { value: "decision", label: "agents.meeting.styleDecision", hint: "agents.meeting.styleDecisionHint" },
+  { value: "brainstorm", label: "agents.meeting.styleBrainstorm", hint: "agents.meeting.styleBrainstormHint" },
+  { value: "standup", label: "agents.meeting.styleStandup", hint: "agents.meeting.styleStandupHint" },
+  { value: "review", label: "agents.meeting.styleReview", hint: "agents.meeting.styleReviewHint" },
 ];
 
 export function MeetingDialog({ open, onClose, rooms }: { open: boolean; onClose: () => void; rooms: string[] }) {
+  const t = useT();
   const orgId = useOrg((s) => s.orgId)!;
   const org = useOrg((s) => s.org);
   const agents = useOrg(useShallow((s) => Object.values(s.agents).filter((a) => !a.isSupervisor)));
@@ -62,20 +64,20 @@ export function MeetingDialog({ open, onClose, rooms }: { open: boolean; onClose
     <Modal
       open={open}
       onClose={onClose}
-      title="Call a meeting"
+      title={t("agents.meeting.title")}
       footer={
         <Button variant="primary" onClick={submit} loading={busy} disabled={!facilitator || !agenda.trim() || people.filter((p) => p !== facilitator).length === 0}>
-          Start meeting
+          {t("agents.meeting.start")}
         </Button>
       }
     >
       <div className="grid gap-4">
-        <Field label="Agenda">
-          <Textarea rows={3} value={agenda} onChange={(e) => setAgenda(e.target.value)} placeholder="What should be discussed or decided?" />
+        <Field label={t("agents.meeting.agenda")}>
+          <Textarea rows={3} value={agenda} onChange={(e) => setAgenda(e.target.value)} placeholder={t("agents.meeting.agendaPlaceholder")} />
         </Field>
-        <Field label="Facilitator" hint="Leads the meeting and writes the minutes">
+        <Field label={t("agents.meeting.facilitator")} hint={t("agents.meeting.facilitatorHint")}>
           <Select value={facilitator} onChange={(e) => setFacilitator(e.target.value)}>
-            <option value="">Choose…</option>
+            <option value="">{t("agents.meeting.choose")}</option>
             {agents.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name} — {a.role}
@@ -84,7 +86,7 @@ export function MeetingDialog({ open, onClose, rooms }: { open: boolean; onClose
           </Select>
         </Field>
         <div>
-          <div className="mb-1.5 text-xs font-medium text-ink-2">Participants</div>
+          <div className="mb-1.5 text-xs font-medium text-ink-2">{t("agents.meeting.participants")}</div>
           <div className="flex flex-wrap gap-2">
             {agents
               .filter((a) => a.id !== facilitator)
@@ -100,34 +102,34 @@ export function MeetingDialog({ open, onClose, rooms }: { open: boolean; onClose
           </div>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Style" hint={STYLES.find((s) => s.value === style)?.hint}>
+          <Field label={t("agents.meeting.style")} hint={t(STYLES.find((s) => s.value === style)?.hint ?? "agents.meeting.styleDiscussionHint")}>
             <Select value={style} onChange={(e) => setStyle(e.target.value)}>
               {STYLES.map((s) => (
                 <option key={s.value} value={s.value}>
-                  {s.label}
+                  {t(s.label)}
                 </option>
               ))}
             </Select>
           </Field>
-          <Field label={`Rounds (max ${defaults.max_rounds})`}>
+          <Field label={t("agents.meeting.rounds", { max: defaults.max_rounds })}>
             <Input type="number" min={1} max={defaults.max_rounds} value={rounds} disabled={style === "standup"} onChange={(e) => setRounds(Number(e.target.value))} />
           </Field>
-          <Field label="Contributions">
+          <Field label={t("agents.meeting.contributions")}>
             <Select value={detail} onChange={(e) => setDetail(e.target.value)}>
-              <option value="brief">Brief (1–3 sentences)</option>
-              <option value="detailed">Detailed (a paragraph)</option>
+              <option value="brief">{t("agents.meeting.brief")}</option>
+              <option value="detailed">{t("agents.meeting.detailed")}</option>
             </Select>
           </Field>
-          <Field label="Room">
+          <Field label={t("agents.meeting.room")}>
             <Select value={room} onChange={(e) => setRoom(e.target.value)}>
-              <option value="">Any free meeting room</option>
+              <option value="">{t("agents.meeting.anyRoom")}</option>
               {rooms.map((r) => (
                 <option key={r}>{r}</option>
               ))}
             </Select>
           </Field>
         </div>
-        <Toggle checked={createTasks} onChange={setCreateTasks} label="Turn agreed action items into assigned tasks" />
+        <Toggle checked={createTasks} onChange={setCreateTasks} label={t("agents.meeting.createTasks")} />
         <ErrorNote error={error} />
       </div>
     </Modal>

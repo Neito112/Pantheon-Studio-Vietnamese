@@ -7,6 +7,7 @@
  */
 
 import { inDesktopApp } from "@/lib/engine";
+import { useT } from "@/i18n";
 import { cx, Input, Toggle } from "./ui";
 import { pickFolder } from "@/lib/folders";
 
@@ -24,19 +25,19 @@ export const DEFAULT_WORKSPACE: WorkspaceSpec = { source: "new", git: true, work
 export const workspaceReady = (s: WorkspaceSpec) =>
   s.source === "new" || (s.source === "folder" ? !!s.path?.trim() : !!s.url?.trim());
 
-const SOURCES: { id: WorkspaceSpec["source"]; label: string; hint: string; icon: string }[] = [
-  { id: "new", label: "A new folder", hint: "Made for this organization", icon: "✦" },
-  { id: "folder", label: "A folder on this computer", hint: "Your project, where it is", icon: "▣" },
-  { id: "clone", label: "Clone a repository", hint: "From GitHub or any git URL", icon: "⑂" },
-];
-
 export function WorkspaceSetup({ value, onChange }: { value: WorkspaceSpec; onChange: (v: WorkspaceSpec) => void }) {
+  const t = useT();
   const set = (patch: Partial<WorkspaceSpec>) => onChange({ ...value, ...patch });
   const git = value.git || value.source === "clone";
+  const sources: { id: WorkspaceSpec["source"]; label: string; hint: string; icon: string }[] = [
+    { id: "new", label: t("org.workspaceNew"), hint: t("org.workspaceNewHint"), icon: "✦" },
+    { id: "folder", label: t("org.workspaceFolder"), hint: t("org.workspaceFolderHint"), icon: "▣" },
+    { id: "clone", label: t("org.workspaceClone"), hint: t("org.workspaceCloneHint"), icon: "⑂" },
+  ];
   return (
     <div className="grid gap-3">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-        {SOURCES.map((s) => (
+        {sources.map((s) => (
           <button
             key={s.id}
             type="button"
@@ -62,9 +63,9 @@ export function WorkspaceSetup({ value, onChange }: { value: WorkspaceSpec; onCh
             <button
               type="button"
               className="shrink-0 rounded-md border border-line-2 px-3 text-sm text-ink-2 hover:text-ink cursor-pointer"
-              onClick={() => void pickFolder("The organization's workspace").then((p) => p && set({ path: p }))}
+              onClick={() => void pickFolder(t("org.workspacePickTitle")).then((p) => p && set({ path: p }))}
             >
-              Choose…
+              {t("org.workspaceChoose")}
             </button>
           )}
         </div>
@@ -77,19 +78,19 @@ export function WorkspaceSetup({ value, onChange }: { value: WorkspaceSpec; onCh
         <Toggle
           checked={git}
           onChange={(v) => value.source !== "clone" && set({ git: v })}
-          label={<span title={value.source === "clone" ? "A clone is a git repository" : undefined}>Use git</span>}
+          label={<span title={value.source === "clone" ? t("org.workspaceCloneIsGit") : undefined}>{t("org.workspaceUseGit")}</span>}
         />
         <span className={cx(!git && "pointer-events-none opacity-40")}>
-          <Toggle checked={git && value.worktrees} onChange={(v) => set({ worktrees: v })} label="A worktree and branch for each agent" />
+          <Toggle checked={git && value.worktrees} onChange={(v) => set({ worktrees: v })} label={t("org.workspaceWorktrees")} />
         </span>
       </div>
       <p className="text-xs leading-relaxed text-ink-3">
         {git && value.worktrees
-          ? "Everyone who writes files works on their own branch in their own worktree, so nobody steps on anyone else's work. Leads work on the main branch and merge their team's branches when they're ready."
+          ? t("org.workspaceGitWorktrees")
           : git
-            ? "Everyone works in the same folder, with git keeping the history."
-            : "Everyone works in the same folder."}
-        {value.source === "folder" && git && " A folder that isn't a git repository yet becomes one, with what's in it as the first commit."}
+            ? t("org.workspaceGitShared")
+            : t("org.workspaceShared")}
+        {value.source === "folder" && git && t("org.workspaceFolderBecomesGit")}
       </p>
     </div>
   );

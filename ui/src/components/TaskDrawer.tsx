@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { api } from "@/lib/api";
-import { dateTime } from "@/lib/format";
+import { formatDateTime, useLocale, useT } from "@/i18n";
 import type { Message, Task, TaskEvent, TaskStatus } from "@/lib/types";
 import { agentName, useOrg } from "@/store/org";
 import { AgentAvatar, UserAvatar } from "./agent";
@@ -11,7 +11,34 @@ import { Badge, Button, Drawer, ErrorNote, Field, Select, Spinner, Textarea } fr
 
 const STATUSES: TaskStatus[] = ["backlog", "todo", "in_progress", "blocked", "review", "done", "cancelled"];
 
+const STATUS_KEYS: Record<TaskStatus, string> = {
+  backlog: "work.statusBacklog",
+  todo: "work.statusTodo",
+  in_progress: "work.statusInProgress",
+  blocked: "work.statusBlocked",
+  review: "work.statusReview",
+  done: "work.statusDone",
+  cancelled: "work.statusCancelled",
+};
+
+const PRIORITY_KEYS: Record<Task["priority"], string> = {
+  low: "work.priorityLow",
+  normal: "work.priorityNormal",
+  high: "work.priorityHigh",
+  urgent: "work.priorityUrgent",
+};
+
+const FIELD_KEYS: Record<string, string> = {
+  title: "work.title",
+  description: "work.description",
+  acceptance: "work.acceptanceCriteria",
+  priority: "work.priority",
+  status: "common.status",
+  assignee: "work.assignee",
+};
+
 export function TaskDrawer({ taskId, onClose }: { taskId: string | null; onClose: () => void }) {
+  const t = useT();
   const live = useOrg((s) => (taskId ? s.tasks[taskId] : undefined));
   const agents = useOrg((s) => s.agents);
   const tasks = useOrg((s) => s.tasks);
@@ -31,13 +58,13 @@ export function TaskDrawer({ taskId, onClose }: { taskId: string | null; onClose
     if (live && detail && live.updatedAt !== detail.updatedAt) load();
   }, [live, detail, load]);
 
-  const t = live ?? detail;
+  const task = live ?? detail;
   const update = async (patch: Partial<Task> & { comment?: string }) => {
-    if (!t) return;
+    if (!task) return;
     setBusy(true);
     setError(null);
     try {
-      await api.updateTask(t.id, patch);
+      await api.updateTask(task.id, patch);
       load();
     } catch (e) {
       setError((e as Error).message);
@@ -46,9 +73,12 @@ export function TaskDrawer({ taskId, onClose }: { taskId: string | null; onClose
     }
   };
 
+  const reporter =
+    task?.reporterId === "user" ? t("common.you") : agentName(task?.reporterId);
+
   return (
     <Drawer open={!!taskId} onClose={onClose} width="w-[560px]">
-      {!t ? (
+      {!task ? (
         <div className="flex h-40 items-center justify-center">
           <Spinner />
         </div>
@@ -56,27 +86,27 @@ export function TaskDrawer({ taskId, onClose }: { taskId: string | null; onClose
         <div className="flex flex-col">
           <div className="border-b border-line p-5">
             <div className="flex items-center gap-2 text-xs text-ink-3">
-              <span className="font-mono">{t.ref}</span>
-              <span>created by {agentName(t.reporterId)}</span>
+              <span className="font-mono">{task.ref}</span>
+              <span>{t("work.createdBy", { name: reporter })}</span>
               <button className="ml-auto text-ink-3 hover:text-ink cursor-pointer" onClick={onClose}>
                 ✕
               </button>
             </div>
-            <h2 className="mt-1.5 text-lg font-semibold leading-snug">{t.title}</h2>
+            <h2 className="mt-1.5 text-lg font-semibold leading-snug">{task.title}</h2>
             <div className="mt-4 grid grid-cols-3 gap-3">
-              <Field label="Status">
-                <Select value={t.status} onChange={(e) => update({ status: e.target.value as TaskStatus })} disabled={busy}>
+              <Field label={t("common.status")}>
+                <Select value={task.status} onChange={(e) => update({ status: e.target.value as TaskStatus })} disabled={busy}>
                   {STATUSES.map((s) => (
                     <option key={s} value={s}>
-                      {s.replace("_", " ")}
+                      {t(STATUS_KEYS[s])}
                     </option>
                   ))}
                 </Select>
               </Field>
-              <Field label="Assignee">
-                <Select value={t.assigneeId ?? ""} onChange={(e) => update({ assigneeId: e.target.value || null })} disabled={busy}>
-                  <option value="">Unassigned</option>
-                  <option value="user">You</option>
+              <Field label={t("work.assignee")}>
+                <Select value={task.assigneeId ?? ""} onChange={(e) => update({ assigneeId: e.target.value || null })} disabled={busy}>
+                  <option value="">{t("work.unassigned")}</option>
+                  <option value="user">{t("common.you")}</option>
                   {Object.values(agents)
                     .filter((a) => !a.isSupervisor)
                     .map((a) => (
@@ -86,10 +116,12 @@ export function TaskDrawer({ taskId, onClose }: { taskId: string | null; onClose
                     ))}
                 </Select>
               </Field>
-              <Field label="Priority">
-                <Select value={t.priority} onChange={(e) => update({ priority: e.target.value as Task["priority"] })} disabled={busy}>
-                  {["low", "normal", "high", "urgent"].map((p) => (
-                    <option key={p}>{p}</option>
+              <Field label={t("work.priority")}>
+                <Select value={task.priority} onChange={(e) => update({ priority: e.target.value as Task["priority"] })} disabled={busy}>
+                  {(["low", "normal", "high", "urgent"] as const).map((p) => (
+                    <option key={p} value={p}>
+                      {t(PRIORITY_KEYS[p])}
+                    </option>
                   ))}
                 </Select>
               </Field>
@@ -97,34 +129,34 @@ export function TaskDrawer({ taskId, onClose }: { taskId: string | null; onClose
             <ErrorNote error={error} />
           </div>
           <div className="space-y-5 p-5">
-            <Section title="Description">{t.description ? <Markdown>{t.description}</Markdown> : <Muted>None</Muted>}</Section>
-            {t.acceptance && (
-              <Section title="Acceptance criteria">
-                <Markdown>{t.acceptance}</Markdown>
+            <Section title={t("work.description")}>{task.description ? <Markdown>{task.description}</Markdown> : <Muted>{t("common.none")}</Muted>}</Section>
+            {task.acceptance && (
+              <Section title={t("work.acceptanceCriteria")}>
+                <Markdown>{task.acceptance}</Markdown>
               </Section>
             )}
-            {t.result && (
-              <Section title="Result">
+            {task.result && (
+              <Section title={t("work.result")}>
                 <div className="rounded-md border border-ok/25 bg-ok/5 p-3">
-                  <Markdown>{t.result}</Markdown>
+                  <Markdown>{task.result}</Markdown>
                 </div>
               </Section>
             )}
-            {(t.dependsOn.length > 0 || t.parentId) && (
-              <Section title="Links">
+            {(task.dependsOn.length > 0 || task.parentId) && (
+              <Section title={t("work.links")}>
                 <div className="flex flex-wrap gap-2 text-sm">
-                  {t.parentId && tasks[t.parentId] && <Badge tone="info">parent {tasks[t.parentId].ref}</Badge>}
-                  {t.dependsOn.map((d) =>
+                  {task.parentId && tasks[task.parentId] && <Badge tone="info">{t("work.parent", { ref: tasks[task.parentId].ref })}</Badge>}
+                  {task.dependsOn.map((d) =>
                     tasks[d] ? (
                       <Badge key={d} tone={tasks[d].status === "done" ? "ok" : "warn"}>
-                        depends on {tasks[d].ref} ({tasks[d].status})
+                        {t("work.dependsOn", { ref: tasks[d].ref, status: t(STATUS_KEYS[tasks[d].status]) })}
                       </Badge>
                     ) : null,
                   )}
                 </div>
               </Section>
             )}
-            <Section title="History">
+            <Section title={t("common.history")}>
               {!detail ? (
                 <Spinner />
               ) : (
@@ -136,7 +168,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId: string | null; onClose
               )}
             </Section>
             <div>
-              <Textarea rows={3} placeholder="Add a comment (the assignee and reporter are notified)…" value={comment} onChange={(e) => setComment(e.target.value)} />
+              <Textarea rows={3} placeholder={t("work.commentPlaceholder")} value={comment} onChange={(e) => setComment(e.target.value)} />
               <div className="mt-2 flex justify-end">
                 <Button
                   variant="primary"
@@ -145,7 +177,7 @@ export function TaskDrawer({ taskId, onClose }: { taskId: string | null; onClose
                   loading={busy}
                   onClick={() => update({ comment }).then(() => setComment(""))}
                 >
-                  Comment
+                  {t("work.comment")}
                 </Button>
               </div>
             </div>
@@ -157,26 +189,32 @@ export function TaskDrawer({ taskId, onClose }: { taskId: string | null; onClose
 }
 
 function TimelineRow({ ev }: { ev: TaskEvent }) {
+  const t = useT();
+  const locale = useLocale();
   const agent = useOrg((s) => s.agents[ev.actorId]);
-  const who = ev.actorId === "user" ? "You" : (agent?.name ?? ev.actorId);
+  const who = ev.actorId === "user" ? t("common.you") : (agent?.name ?? ev.actorId);
   const d = ev.data as Record<string, string>;
+  const statusOf = (s?: string) => (s && s in STATUS_KEYS ? t(STATUS_KEYS[s as TaskStatus]) : (s ?? "").replace("_", " "));
+  const fieldOf = (f?: string) => (f && FIELD_KEYS[f] ? t(FIELD_KEYS[f]) : (f ?? ""));
   const text =
     ev.kind === "created"
-      ? "created the task"
+      ? t("work.eventCreated")
       : ev.kind === "status"
-        ? `moved it ${d.from?.replace("_", " ")} → ${d.to?.replace("_", " ")}`
+        ? t("work.eventStatus", { from: statusOf(d.from), to: statusOf(d.to) })
         : ev.kind === "assignee"
-          ? `assigned it to ${agentName(d.to) || "nobody"}`
+          ? d.to
+            ? t("work.eventAssignee", { name: d.to === "user" ? t("common.you") : agentName(d.to) })
+            : t("work.eventUnassigned")
           : ev.kind === "edit"
-            ? `edited the ${d.field}`
-            : "commented";
+            ? t("work.eventEdit", { field: fieldOf(d.field) })
+            : t("work.eventCommented");
   return (
     <div className="flex gap-2.5">
       {ev.actorId === "user" ? <UserAvatar size={22} /> : <AgentAvatar agent={agent} size={22} />}
       <div className="min-w-0 flex-1">
         <div className="text-sm">
           <span className="font-medium">{who}</span> <span className="text-ink-2">{text}</span>
-          <span className="ml-2 text-[11px] text-ink-3">{dateTime(ev.createdAt)}</span>
+          <span className="ml-2 text-[11px] text-ink-3">{formatDateTime(locale, ev.createdAt)}</span>
         </div>
         {ev.kind === "comment" && (
           <div className="mt-1 rounded-md bg-panel-2 px-3 py-2">
