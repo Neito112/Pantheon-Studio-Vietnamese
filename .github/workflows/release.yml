@@ -12,7 +12,9 @@ name: Installers
 on:
   workflow_dispatch:
   push:
-    tags: ["v*"]
+    # Upstream-style version tags run the full platform matrix. Vietnamese Windows
+    # releases use vi-<version>-rN and upload the locally verified Windows packages.
+    tags: ["v[0-9]*"]
 
 permissions:
   contents: write
